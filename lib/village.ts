@@ -1,0 +1,137 @@
+// Agent types and village simulation logic
+
+export interface Agent {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  personality: string;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  speed: number;
+  state: "walking" | "talking" | "idle";
+  talkingTo: string | null;
+}
+
+export interface Relationship {
+  agentA: string;
+  agentB: string;
+  meetCount: number;
+  lastTopics: string[];
+}
+
+export interface ChatBubble {
+  id: string;
+  agentId: string;
+  text: string;
+  timestamp: number;
+  duration: number; // ms to display
+}
+
+// Default agent templates
+export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = [
+  {
+    id: "agent-1",
+    name: "민수",
+    emoji: "🧑‍💻",
+    color: "#6366f1",
+    personality: "호기심 많은 개발자. 항상 새로운 기술에 관심이 많고 열정적이다.",
+    speed: 1.2,
+    state: "walking",
+    talkingTo: null,
+  },
+  {
+    id: "agent-2",
+    name: "지은",
+    emoji: "👩‍🎨",
+    color: "#ec4899",
+    personality: "감성적인 아티스트. 그림 그리기를 좋아하고 철학적인 대화를 즐긴다.",
+    speed: 0.8,
+    state: "walking",
+    talkingTo: null,
+  },
+  {
+    id: "agent-3",
+    name: "준호",
+    emoji: "🧑‍🚀",
+    color: "#14b8a6",
+    personality: "모험을 좋아하는 탐험가. 우주와 미래에 대한 이야기를 좋아한다.",
+    speed: 1.5,
+    state: "walking",
+    talkingTo: null,
+  },
+  {
+    id: "agent-4",
+    name: "하나",
+    emoji: "👩‍🔬",
+    color: "#f59e0b",
+    personality: "논리적인 과학자. 데이터와 실험에 기반한 대화를 선호한다.",
+    speed: 1.0,
+    state: "walking",
+    talkingTo: null,
+  },
+  {
+    id: "agent-5",
+    name: "태현",
+    emoji: "🧑‍🍳",
+    color: "#ef4444",
+    personality: "유쾌한 셰프. 음식과 맛에 대한 이야기를 사랑하고 사람들을 웃기는 걸 좋아한다.",
+    speed: 1.1,
+    state: "walking",
+    talkingTo: null,
+  },
+];
+
+// Map dimensions
+export const MAP_WIDTH = 800;
+export const MAP_HEIGHT = 600;
+export const INTERACTION_DISTANCE = 60;
+export const BUBBLE_DURATION = 5000; // 5 seconds
+
+// Generate a random position within map bounds
+export function randomPosition() {
+  return {
+    x: 50 + Math.random() * (MAP_WIDTH - 100),
+    y: 50 + Math.random() * (MAP_HEIGHT - 100),
+  };
+}
+
+// Generate a new random target for an agent to walk to
+export function newTarget() {
+  return {
+    targetX: 50 + Math.random() * (MAP_WIDTH - 100),
+    targetY: 50 + Math.random() * (MAP_HEIGHT - 100),
+  };
+}
+
+// Calculate distance between two agents
+export function distance(a: Agent, b: Agent): number {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+// Get relationship key (always sorted so A-B == B-A)
+export function relationshipKey(a: string, b: string): string {
+  return [a, b].sort().join(":");
+}
+
+// Determine conversation type based on meet count
+export function getConversationType(meetCount: number): "greeting" | "smalltalk" | "deep" {
+  if (meetCount === 0) return "greeting";
+  if (meetCount <= 2) return "smalltalk";
+  return "deep";
+}
+
+// Initialize agents with random positions
+export function initializeAgents(templates: typeof DEFAULT_AGENTS): Agent[] {
+  return templates.map((t) => {
+    const pos = randomPosition();
+    const target = newTarget();
+    return {
+      ...t,
+      ...pos,
+      ...target,
+    };
+  });
+}
