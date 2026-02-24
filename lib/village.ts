@@ -182,11 +182,11 @@ export function randomPosition() {
 }
 
 // Pick a random destination building for an agent
-export function pickDestination(agentId: string, homeId: string | null, currentDest: string | null): { targetX: number; targetY: number; destination: string } {
-  // Possible destinations: all buildings
+// partnerHomeId: 연인/부부의 집 (있으면 목적지 후보에 포함)
+export function pickDestination(agentId: string, homeId: string | null, currentDest: string | null, partnerHomeId?: string | null): { targetX: number; targetY: number; destination: string } {
   const candidates = VILLAGE_BUILDINGS.filter(b => b.id !== currentDest);
 
-  // 30% chance to go home if has a home
+  // 30% chance to go home
   if (homeId && Math.random() < 0.3) {
     const home = VILLAGE_BUILDINGS.find(b => b.id === homeId);
     if (home && home.id !== currentDest) {
@@ -194,6 +194,18 @@ export function pickDestination(agentId: string, homeId: string | null, currentD
         targetX: home.x + home.width / 2 + (Math.random() - 0.5) * 30,
         targetY: home.y + home.height + 15 + Math.random() * 20,
         destination: home.id,
+      };
+    }
+  }
+
+  // 20% chance to visit partner's home (연인/부부)
+  if (partnerHomeId && partnerHomeId !== homeId && Math.random() < 0.2) {
+    const partnerHome = VILLAGE_BUILDINGS.find(b => b.id === partnerHomeId);
+    if (partnerHome && partnerHome.id !== currentDest) {
+      return {
+        targetX: partnerHome.x + partnerHome.width / 2 + (Math.random() - 0.5) * 30,
+        targetY: partnerHome.y + partnerHome.height + 15 + Math.random() * 20,
+        destination: partnerHome.id,
       };
     }
   }

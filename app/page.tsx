@@ -166,6 +166,23 @@ export default function VillagePage() {
     setIsSendingDecree(false);
   }, [godMessage, isSendingDecree]);
 
+  // Find partner's homeId for lover/married/parent agents
+  const getPartnerHomeId = useCallback((agentId: string): string | null => {
+    for (const [, rel] of relationshipsRef.current) {
+      if (rel.stage === "lover" || rel.stage === "married" || rel.stage === "parent") {
+        if (rel.agentA === agentId) {
+          const partner = agentsRef.current.find(a => a.id === rel.agentB);
+          return partner?.homeId || null;
+        }
+        if (rel.agentB === agentId) {
+          const partner = agentsRef.current.find(a => a.id === rel.agentA);
+          return partner?.homeId || null;
+        }
+      }
+    }
+    return null;
+  }, []);
+
   // Request conversation
   const requestConversation = useCallback(async (agentA: Agent, agentB: Agent, rel: Relationship) => {
     const key = relationshipKey(agentA.id, agentB.id);
@@ -252,7 +269,7 @@ export default function VillagePage() {
         setTimeout(() => {
           agentsRef.current = agentsRef.current.map((a) => {
             if (a.id === agentA.id || a.id === agentB.id) {
-              const next = pickDestination(a.id, a.homeId, a.destination);
+              const next = pickDestination(a.id, a.homeId, a.destination, getPartnerHomeId(a.id));
               return { ...a, state: "walking" as const, talkingTo: null, ...next };
             }
             return a;
@@ -277,7 +294,7 @@ export default function VillagePage() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 8) {
           // Arrived at destination — pick new one
-          const next = pickDestination(agent.id, agent.homeId, agent.destination);
+          const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
           return { ...agent, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
         }
         return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
