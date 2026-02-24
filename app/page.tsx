@@ -31,6 +31,8 @@ import {
   OUTFITS,
   HOME_UPGRADES,
   AgentOutfit,
+  VillageLaw,
+  PROPOSED_LAWS,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -67,6 +69,19 @@ function shadeColor(hex: string, amt: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
+// 법률 효과 조회
+function getLawEffect(laws: VillageLaw[], type: string): number | string | boolean | null {
+  for (const law of laws) {
+    if (law.effect.type === type) {
+      if ('value' in law.effect) return law.effect.value;
+      if ('text' in law.effect) return law.effect.text;
+      if ('active' in law.effect) return law.effect.active;
+      if ('duration' in law.effect) return law.effect.duration;
+    }
+  }
+  return null;
+}
+
 // 시장 안에 있는지 체크
 function isInMarket(x: number, y: number): boolean {
   const market = VILLAGE_BUILDINGS.find(b => b.id === "market");
@@ -94,6 +109,11 @@ export default function VillagePage() {
   const [isSendingDecree, setIsSendingDecree] = useState(false);
   const [lastDecree, setLastDecree] = useState<string | null>(null);
   const [godEffect, setGodEffect] = useState(false);
+  // 🏛️ 사회 시스템
+  const [villageLaws, setVillageLaws] = useState<VillageLaw[]>([]);
+  const [villageSlogan, setVillageSlogan] = useState<string | null>(null);
+  const [festivalUntil, setFestivalUntil] = useState<number | null>(null); // timestamp until festival ends
+  const villageLawsRef = useRef<VillageLaw[]>([]);
   const [worldObjects, setWorldObjects] = useState<WorldObject[]>([]);
   const [showObjectPicker, setShowObjectPicker] = useState(false);
   const worldObjectsRef = useRef<WorldObject[]>([]);
@@ -295,6 +315,62 @@ export default function VillagePage() {
         });
 
         const totalDuration = data.messages.length * 2500 + BUBBLE_DURATION;
+
+        // 투표 + 법률 처리
+        if (data.proposedLaw) {
+          const law = data.proposedLaw;
+          const voteDelay = totalDuration - 3000;
+          setTimeout(() => {
+            // 투표 결과 표시
+            setConversationLog(prev => [
+              `🗳️ 투표: "${law.emoji} ${law.name}" — 찬성 ${law.yesCount} / 반대 ${law.noCount}`,
+              ...prev
+            ].slice(0, 50));
+
+            if (law.passed) {
+              const newLaw: VillageLaw = {
+                id: `law-${Date.now()}`,
+                name: law.name,
+                emoji: law.emoji,
+                description: law.description,
+                effect: law.effect,
+                passedAt: Date.now(),
+                proposedBy: groupAgents[0].name,
+              };
+              villageLawsRef.current = [...villageLawsRef.current, newLaw];
+              setVillageLaws([...villageLawsRef.current]);
+              setConversationLog(prev => [`✅ "${law.emoji} ${law.name}" 법안 통과! ${law.description}`, ...prev].slice(0, 50));
+
+              // 참가자 평판 +5 (토론 참여 보너스)
+              agentsRef.current = agentsRef.current.map(ag => {
+                if (participantIds.has(ag.id)) {
+                  return { ...ag, reputation: Math.min(100, ag.reputation + 5) };
+                }
+                return ag;
+              });
+
+              // 축제 효과 처리
+              if (law.effect.type === "festival") {
+                setFestivalUntil(Date.now() + law.effect.duration);
+                setConversationLog(prev => [`🎊🎉 마을 축제가 시작됩니다!! 🎉🎊`, ...prev].slice(0, 50));
+              }
+
+              // 슬로건이면 표시
+              if (law.effect.type === "slogan" && 'text' in law.effect) {
+                setVillageSlogan(law.effect.text);
+              }
+
+              // 말풍선
+              groupAgents.forEach(ag => {
+                bubblesRef.current = [...bubblesRef.current, { id: `vote-${Date.now()}-${ag.id}`, agentId: ag.id, text: `${law.emoji} 통과!`, timestamp: Date.now(), duration: 4000 }];
+              });
+              setBubbles([...bubblesRef.current]);
+            } else {
+              setConversationLog(prev => [`❌ "${law.emoji} ${law.name}" 법안 부결...`, ...prev].slice(0, 50));
+            }
+          }, Math.max(0, voteDelay));
+        }
+
         setTimeout(() => {
           agentsRef.current = agentsRef.current.map(ag => {
             if (participantIds.has(ag.id)) {
@@ -358,6 +434,15 @@ export default function VillagePage() {
         const familyCheck = isFamily(agentA, agentB);
         const newStage = getRelationshipStage(newMeetCount, oldStage, familyCheck);
         const updatedRel: Relationship = { ...rel, meetCount: newMeetCount, stage: newStage };
+
+        // 대화 시 평판 보너스 (친절 보너스법)
+        const repBonus = (getLawEffect(villageLawsRef.current, "reputation_bonus") as number) || 1;
+        agentsRef.current = agentsRef.current.map(ag => {
+          if (ag.id === agentA.id || ag.id === agentB.id) {
+            return { ...ag, reputation: Math.min(100, ag.reputation + repBonus) };
+          }
+          return ag;
+        });
         if (data.topic) updatedRel.lastTopics = [...updatedRel.lastTopics, data.topic].slice(-3);
         relationshipsRef.current.set(key, updatedRel);
         setRelationships(new Map(relationshipsRef.current));
@@ -418,25 +503,37 @@ export default function VillagePage() {
           const aInMarket = isInMarket(agentA.x, agentA.y);
           const bInMarket = isInMarket(agentB.x, agentB.y);
           if ((aInMarket || bInMarket) && !agentA.isBaby && !agentB.isBaby) {
-            // 50% 확률로 거래 발생
-            if (Math.random() < 0.5) {
+            // 평판 낮으면 거래 거부 (20 미만)
+            const lowRepAgent = agentA.reputation < 20 ? agentA : agentB.reputation < 20 ? agentB : null;
+            if (lowRepAgent) {
+              const other = lowRepAgent.id === agentA.id ? agentB : agentA;
+              if (Math.random() < 0.7) { // 70% 확률로 거부
+                setConversationLog(prev => [`🚫 ${other.emoji} ${other.name}이(가) ${lowRepAgent.emoji} ${lowRepAgent.name}과(와)의 거래를 거부했습니다! (평판 낮음)`, ...prev].slice(0, 50));
+                bubblesRef.current = [...bubblesRef.current, { id: `refuse-${Date.now()}`, agentId: other.id, text: "🚫 거래 거부!", timestamp: Date.now(), duration: 3000 }];
+                setBubbles([...bubblesRef.current]);
+              }
+            } else if (Math.random() < 0.5) {
               const seller = agentA.product && agentB.coins >= agentA.product.price ? agentA :
                              agentB.product && agentA.coins >= agentB.product.price ? agentB : null;
               const buyer = seller?.id === agentA.id ? agentB : agentA;
               if (seller && seller.product && buyer.coins >= seller.product.price) {
                 const price = seller.product.price;
+                const taxRate = (getLawEffect(villageLawsRef.current, "trade_tax_percent") as number) || 0;
+                const tax = Math.floor(price * taxRate / 100);
+                const sellerReceives = price - tax;
                 agentsRef.current = agentsRef.current.map(ag => {
-                  if (ag.id === buyer.id) return { ...ag, coins: ag.coins - price };
-                  if (ag.id === seller.id) return { ...ag, coins: ag.coins + price };
+                  if (ag.id === buyer.id) return { ...ag, coins: ag.coins - price, reputation: Math.min(100, ag.reputation + 1) };
+                  if (ag.id === seller.id) return { ...ag, coins: ag.coins + sellerReceives, reputation: Math.min(100, ag.reputation + 1) };
                   return ag;
                 });
+                const taxMsg = tax > 0 ? ` (세금 ${formatCoins(tax)})` : "";
                 setConversationLog((prev) => [
-                  `💰 ${buyer.emoji} ${buyer.name}이(가) ${seller.emoji} ${seller.name}의 ${seller.product!.emoji} ${seller.product!.name}을(를) ${formatCoins(price)}에 구매!`,
+                  `💰 ${buyer.emoji} ${buyer.name}이(가) ${seller.emoji} ${seller.name}의 ${seller.product!.emoji} ${seller.product!.name}을(를) ${formatCoins(price)}에 구매!${taxMsg}`,
                   ...prev
                 ].slice(0, 50));
                 bubblesRef.current = [
                   ...bubblesRef.current,
-                  { id: `trade-${Date.now()}-s`, agentId: seller.id, text: `💰 +${formatCoins(price)}!`, timestamp: Date.now(), duration: 4000 },
+                  { id: `trade-${Date.now()}-s`, agentId: seller.id, text: `💰 +${formatCoins(sellerReceives)}!`, timestamp: Date.now(), duration: 4000 },
                   { id: `trade-${Date.now()}-b`, agentId: buyer.id, text: `${seller.product!.emoji} 구매!`, timestamp: Date.now(), duration: 4000 },
                 ];
                 setBubbles([...bubblesRef.current]);
@@ -481,10 +578,11 @@ export default function VillagePage() {
                 // 50% 확률로 들킴
                 const caught = Math.random() < 0.5;
                 if (caught) {
-                  // 들킴 → 벌금 (훔치려던 금액의 2배)
-                  const fine = Math.min(stealAmount * 2, agent.coins);
+                  // 들킴 → 벌금 (법률에 따라 배수 변동)
+                  const fineMultiplier = (getLawEffect(villageLawsRef.current, "steal_fine_multiplier") as number) || 2;
+                  const fine = Math.min(stealAmount * fineMultiplier, agent.coins);
                   agentsRef.current = agentsRef.current.map(ag => {
-                    if (ag.id === agent.id) return { ...ag, coins: ag.coins - fine };
+                    if (ag.id === agent.id) return { ...ag, coins: ag.coins - fine, reputation: Math.max(0, ag.reputation - 10) };
                     if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins + fine };
                     return ag;
                   });
@@ -505,9 +603,9 @@ export default function VillagePage() {
                     setConversationLog(prev => [`💔 ${agent.name}와(과) ${homeOwner.name}의 관계가 크게 나빠졌습니다!`, ...prev].slice(0, 50));
                   }
                 } else {
-                  // 성공!
+                  // 성공! 평판 소폭 하락
                   agentsRef.current = agentsRef.current.map(ag => {
-                    if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount };
+                    if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount, reputation: Math.max(0, ag.reputation - 3) };
                     if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins - stealAmount };
                     return ag;
                   });
@@ -608,6 +706,52 @@ export default function VillagePage() {
         }
         return agent;
       });
+
+      // 🏛️ 이장 선출 (매 600틱 = ~10초)
+      if (tickRef.current % 600 === 0 && tickRef.current > 0) {
+        const adultAgents = agentsRef.current.filter(a => !a.isBaby);
+        if (adultAgents.length >= 3) {
+          // 점수 = 평판 × 2 + 코인 순위 + 관계 수
+          const scores = adultAgents.map(a => {
+            const relCount = Array.from(relationshipsRef.current.values()).filter(
+              r => (r.agentA === a.id || r.agentB === a.id) && r.meetCount >= 3
+            ).length;
+            return { agent: a, score: a.reputation * 2 + relCount * 10 + (a.coins > 50_000_000 ? 20 : 0) };
+          });
+          scores.sort((a, b) => b.score - a.score);
+          const newMayor = scores[0].agent;
+          const currentMayor = agentsRef.current.find(a => a.isMayor);
+
+          if (!currentMayor || currentMayor.id !== newMayor.id) {
+            agentsRef.current = agentsRef.current.map(ag => ({
+              ...ag,
+              isMayor: ag.id === newMayor.id,
+              title: ag.id === newMayor.id ? "🏛️ 이장" : (ag.isMayor ? null : ag.title),
+            }));
+            if (!currentMayor || currentMayor.id !== newMayor.id) {
+              setConversationLog(prev => [`🏛️ ${newMayor.emoji} ${newMayor.name}이(가) 마을 이장으로 선출되었습니다! (평판: ${newMayor.reputation})`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `mayor-${now}`, agentId: newMayor.id, text: "🏛️ 이장 당선!", timestamp: now, duration: 6000 }];
+              setBubbles([...bubblesRef.current]);
+            }
+          }
+        }
+      }
+
+      // 🎉 축제 효과 (모두 마을 회관으로)
+      if (festivalUntil && now < festivalUntil) {
+        const plaza = VILLAGE_BUILDINGS.find(b => b.id === "plaza");
+        if (plaza && tickRef.current % 120 === 0) {
+          agentsRef.current = agentsRef.current.map(ag => {
+            if (ag.state !== "talking" && ag.destination !== "plaza") {
+              return { ...ag, destination: "plaza", targetX: plaza.x + plaza.width / 2 + (Math.random() - 0.5) * 60, targetY: plaza.y + plaza.height / 2 + (Math.random() - 0.5) * 60 };
+            }
+            return ag;
+          });
+        }
+      } else if (festivalUntil && now >= festivalUntil) {
+        setFestivalUntil(null);
+        setConversationLog(prev => [`🎊 축제가 끝났습니다! 다시 일상으로...`, ...prev].slice(0, 50));
+      }
 
       // 에이전트 자동 쇼핑 (매 300틱 ≈ 5초마다 체크)
       if (tickRef.current % 300 === 0) {
@@ -837,11 +981,14 @@ export default function VillagePage() {
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
-      // 코인 표시
+      // 코인 + 평판 표시
       if (agent.coins !== undefined && !agent.isBaby) {
         ctx.font = "8px sans-serif";
         ctx.fillStyle = "#fbbf24";
-        ctx.fillText(`💰${formatCoins(agent.coins)}`, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
+        const repColor = agent.reputation >= 70 ? "#34d399" : agent.reputation >= 40 ? "#fbbf24" : "#f87171";
+        ctx.fillText(`💰${formatCoins(agent.coins)}`, agent.x - 12, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
+        ctx.fillStyle = repColor;
+        ctx.fillText(`⭐${agent.reputation}`, agent.x + 12, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
       }
 
       // 칭호 명찰 (title badge)
@@ -923,6 +1070,24 @@ export default function VillagePage() {
     ctx.strokeRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
     ctx.restore();
+
+    // 축제 이펙트 (화면 가장자리 반짝이)
+    if (festivalUntil && Date.now() < festivalUntil) {
+      for (let i = 0; i < 8; i++) {
+        const fx = Math.random() * VIEWPORT_W;
+        const fy = Math.random() * VIEWPORT_H;
+        ctx.font = `${10 + Math.random() * 10}px sans-serif`;
+        ctx.fillText(["🎉", "🎊", "✨", "🎶", "💃"][Math.floor(Math.random() * 5)], fx, fy);
+      }
+    }
+
+    // 슬로건 표시 (상단)
+    if (villageSlogan) {
+      ctx.font = "bold 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(251, 191, 36, 0.8)";
+      ctx.fillText(`✨ "${villageSlogan}" ✨`, VIEWPORT_W / 2, 18);
+    }
 
     // Minimap (bottom-left corner)
     const mmW = 160, mmH = 120, mmX = 10, mmY = VIEWPORT_H - mmH - 10;
@@ -1025,11 +1190,51 @@ export default function VillagePage() {
             </div>
           </div>
 
+          {/* 🏛️ 마을 현황 */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shrink-0">
+            <h3 className="text-sm font-bold text-zinc-300 mb-2">🏛️ 마을 현황</h3>
+            {villageSlogan && <div className="text-xs text-amber-400 italic mb-2 text-center">&quot;{villageSlogan}&quot;</div>}
+            {festivalUntil && Date.now() < festivalUntil && <div className="text-xs text-pink-400 font-bold mb-2 text-center animate-pulse">🎊 축제 진행중! 🎊</div>}
+            {/* 이장 */}
+            {(() => { const mayor = agents.find(a => a.isMayor); return mayor ? <div className="text-xs text-amber-300 mb-2">🏛️ 이장: {mayor.emoji} {mayor.name} (평판 {mayor.reputation})</div> : <div className="text-xs text-zinc-600 italic mb-2">이장 미선출</div>; })()}
+            {/* 법률 목록 */}
+            {villageLaws.length > 0 && (
+              <div className="space-y-1 max-h-[60px] overflow-y-auto">
+                {villageLaws.slice(-5).map((law) => (
+                  <div key={law.id} className="text-xs text-emerald-400 border-l-2 border-emerald-600 pl-2">
+                    {law.emoji} {law.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            {villageLaws.length === 0 && <div className="text-xs text-zinc-600 italic">제정된 법률이 없습니다</div>}
+            {/* 주민 평판 */}
+            <div className="mt-2 space-y-0.5 max-h-[60px] overflow-y-auto">
+              {agents.filter(a => !a.isBaby).sort((a, b) => b.reputation - a.reputation).map(a => (
+                <div key={a.id} className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-400">{a.emoji} {a.name} {a.isMayor ? "🏛️" : ""}</span>
+                  <span className={`font-mono ${a.reputation >= 70 ? "text-emerald-400" : a.reputation >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                    ⭐{a.reputation} 💰{formatCoins(a.coins)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex-1 min-h-0 flex flex-col">
             <h3 className="text-sm font-bold text-zinc-300 mb-3 shrink-0">💬 대화 기록</h3>
             <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0">
               {conversationLog.map((log, i) => (
-                <div key={i} className={`text-xs border-l-2 pl-2 ${log.startsWith("⚡") ? "text-amber-400 border-amber-500 font-bold" : "text-zinc-400 border-zinc-700"}`}>{log}</div>
+                <div key={i} className={`text-xs border-l-2 pl-2 ${
+                  log.startsWith("⚡") ? "text-amber-400 border-amber-500 font-bold" :
+                  log.startsWith("✅") || log.startsWith("🗳️") ? "text-emerald-400 border-emerald-500 font-bold" :
+                  log.startsWith("❌") ? "text-red-400 border-red-500 font-bold" :
+                  log.startsWith("🏛️") ? "text-amber-300 border-amber-600 font-bold" :
+                  log.startsWith("🎊") || log.startsWith("🎉") ? "text-pink-400 border-pink-500 font-bold" :
+                  log.startsWith("🗣️") || log.startsWith("📢") ? "text-blue-400 border-blue-500 font-bold" :
+                  log.startsWith("🚨") || log.startsWith("🦹") ? "text-red-300 border-red-600" :
+                  "text-zinc-400 border-zinc-700"
+                }`}>{log}</div>
               ))}
               {conversationLog.length === 0 && <p className="text-xs text-zinc-600 italic">에이전트들이 만나면 대화가 시작됩니다...</p>}
             </div>

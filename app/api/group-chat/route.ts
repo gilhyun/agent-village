@@ -128,11 +128,38 @@ ${speaker.product ? `판매 상품: ${speaker.product.emoji} ${speaker.product.n
       histories.set(speaker.id, history);
     }
 
+    // 토론 결과 → 투표할 법안 선택 (30% 확률)
+    let proposedLaw = null;
+    if (Math.random() < 0.3) {
+      // 토론 주제에 관련된 법안 추천
+      const PROPOSED_LAWS = [
+        { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
+        { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
+        { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
+        { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180000 } },
+        { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
+        { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
+        { name: "도둑 관용법", emoji: "🕊️", description: "도둑질 벌금 1배로 낮춤", effect: { type: "steal_fine_multiplier", value: 1 } },
+      ];
+      proposedLaw = PROPOSED_LAWS[Math.floor(Math.random() * PROPOSED_LAWS.length)];
+
+      // 각 에이전트 투표 시뮬레이션 (성격 기반)
+      const votes: { agentName: string; vote: "yes" | "no" }[] = agents.map(a => ({
+        agentName: a.name,
+        vote: Math.random() < 0.6 ? "yes" : "no", // 60% 찬성 경향
+      }));
+      const yesCount = votes.filter(v => v.vote === "yes").length;
+      const passed = yesCount > agents.length / 2;
+
+      proposedLaw = { ...proposedLaw, votes, yesCount, noCount: votes.length - yesCount, passed };
+    }
+
     return NextResponse.json({
       messages,
       topic,
       isGroupChat: true,
       participantCount: agents.length,
+      proposedLaw,
     });
   } catch (error: any) {
     console.error("Group Chat API Error:", error);

@@ -26,7 +26,43 @@ export interface Agent {
   outfit?: AgentOutfit | null;
   // 🏠 집 레벨
   homeLevel?: number; // 0=기본, 1=중형, 2=대형, 3=맨션
+  // ⭐ 평판 시스템
+  reputation: number; // 0~100, 기본 50
+  // 🏛️ 이장 여부
+  isMayor?: boolean;
 }
+
+// 🏛️ 마을 법률
+export interface VillageLaw {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  effect: LawEffect;
+  passedAt: number; // timestamp
+  proposedBy: string; // agent name
+}
+
+export type LawEffect =
+  | { type: "steal_fine_multiplier"; value: number }
+  | { type: "trade_tax_percent"; value: number }
+  | { type: "reputation_bonus"; value: number }
+  | { type: "speed_bonus"; value: number }
+  | { type: "festival"; duration: number }
+  | { type: "curfew"; active: boolean }
+  | { type: "slogan"; text: string };
+
+// 투표 가능한 법안들
+export const PROPOSED_LAWS: { name: string; emoji: string; description: string; effect: LawEffect }[] = [
+  { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
+  { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
+  { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
+  { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180_000 } },
+  { name: "야간 통행금지", emoji: "🌙", description: "밤에는 집에만 있기", effect: { type: "curfew", active: true } },
+  { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
+  { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
+  { name: "도둑 관용법", emoji: "🕊️", description: "도둑질 벌금 1배로 낮춤", effect: { type: "steal_fine_multiplier", value: 1 } },
+];
 
 // 에이전트 상품
 export interface AgentProduct {
@@ -118,7 +154,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-minsu",
-    coins: 100_000_000,
+    coins: 100_000_000, reputation: 50,
     product: { name: "AI 챗봇", emoji: "🤖", price: 500_000, description: "민수가 만든 AI 챗봇 프로그램" },
   },
   {
@@ -131,7 +167,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-jieun",
-    coins: 100_000_000,
+    coins: 100_000_000, reputation: 50,
     product: { name: "수채화", emoji: "🎨", price: 800_000, description: "지은이 직접 그린 수채화 작품" },
   },
   {
@@ -144,7 +180,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-junho",
-    coins: 100_000_000,
+    coins: 100_000_000, reputation: 50,
     product: { name: "탐험 지도", emoji: "🗺️", price: 300_000, description: "준호가 직접 탐험하며 그린 마을 지도" },
   },
   {
@@ -157,7 +193,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-hana",
-    coins: 100_000_000,
+    coins: 100_000_000, reputation: 50,
     product: { name: "에너지 물약", emoji: "🧪", price: 600_000, description: "하나가 조제한 에너지 물약" },
   },
   {
@@ -170,7 +206,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-taehyun",
-    coins: 100_000_000,
+    coins: 100_000_000, reputation: 50,
     product: { name: "특제 도시락", emoji: "🍱", price: 400_000, description: "태현의 정성 가득 특제 도시락" },
   },
 ];
@@ -633,6 +669,7 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): { baby: Omit<Ag
     birthTime: Date.now(),
     parentIds: [parentA.id, parentB.id],
     coins: babyCoins,
+    reputation: 50,
   };
 
   return { baby, inheritanceA, inheritanceB };
