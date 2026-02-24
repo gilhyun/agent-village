@@ -102,7 +102,7 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 // 문장 단위로 자르기 (글자 잘림 방지)
-function trimToSentence(text: string, maxLen: number = 60): string {
+function trimToSentence(text: string, maxLen: number = 120): string {
   if (text.length <= maxLen) return text;
   // 마지막 문장부호 위치 찾기
   const cutText = text.slice(0, maxLen);
