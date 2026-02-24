@@ -671,257 +671,209 @@ export function drawFurniture(ctx: Ctx, f: Furniture, bx: number, by: number) {
 }
 
 // ── Building interior rendering ──
-export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
-  const wall = isDark ? "#2a2040" : b.wallColor;
-  const floor = isDark ? "#1a1530" : b.floorColor;
-  const roofC = isDark ? "#3a2060" : b.roofColor;
-  const wallDark = shadeColor(wall, -30);
-  const wallMid = shadeColor(wall, -15);
-  const wallLight = shadeColor(wall, 20);
+// ── 방 하나 렌더링 (벽+바닥+마루) ──
+function drawRoom(
+  ctx: Ctx,
+  rx: number, ry: number, rw: number, rh: number,
+  wall: string, wallDark: string, wallMid: string, wallLight: string,
+  isDark: boolean, hasDoor: boolean, isMain: boolean,
+) {
+  const WALL_H = isMain ? 28 : 20;
+  const SIDE_W = 8;
+  const BOTTOM_H = 6;
+  const doorGap = hasDoor ? 30 : 0;
 
-  // ── Constants ──
-  const WALL_H = 28;       // 뒷벽 높이 (3D 느낌)
-  const SIDE_W = 10;       // 옆벽 두께
-  const BOTTOM_H = 8;      // 앞벽(하단) 두께
-  const doorGap = 34;
+  // Drop shadow
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.fillRect(rx + 4, ry + 4, rw, rh + WALL_H);
 
-  // ── Drop shadow (건물 전체) ──
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(b.x + 6, b.y + 6, b.width, b.height + WALL_H);
-
-  // ── 뒷벽 (Back wall — 3D 높이) ──
-  // 벽 면 (메인)
-  const backY = b.y - WALL_H;
+  // ── 뒷벽 ──
+  const backY = ry - WALL_H;
   ctx.fillStyle = wallMid;
-  ctx.fillRect(b.x, backY, b.width, WALL_H);
-  // 벽 상단 하이라이트
+  ctx.fillRect(rx, backY, rw, WALL_H);
   ctx.fillStyle = wallLight;
-  ctx.fillRect(b.x, backY, b.width, 3);
-  // 벽 하단 그림자 (바닥 경계)
+  ctx.fillRect(rx, backY, rw, 2);
   ctx.fillStyle = wallDark;
-  ctx.fillRect(b.x, b.y - 2, b.width, 2);
-  // 벽돌/판넬 패턴
+  ctx.fillRect(rx, ry - 1, rw, 1);
+
+  // 벽 패턴
   ctx.strokeStyle = shadeColor(wall, -8);
-  ctx.lineWidth = 0.5;
-  for (let wy = backY + 8; wy < b.y; wy += 10) {
-    ctx.beginPath(); ctx.moveTo(b.x + 2, wy); ctx.lineTo(b.x + b.width - 2, wy); ctx.stroke();
-  }
-  // 세로 패턴 (offset)
-  for (let wx = b.x + 20; wx < b.x + b.width; wx += 25) {
-    ctx.beginPath(); ctx.moveTo(wx, backY + 3); ctx.lineTo(wx, b.y - 2); ctx.stroke();
+  ctx.lineWidth = 0.4;
+  for (let wy = backY + 7; wy < ry; wy += 8) {
+    ctx.beginPath(); ctx.moveTo(rx + 2, wy); ctx.lineTo(rx + rw - 2, wy); ctx.stroke();
   }
 
-  // ── 뒷벽 창문들 ──
-  if (!isDark) {
-    const winCount = Math.max(1, Math.floor(b.width / 60));
-    const winW = 18, winH = 14;
-    const winSpacing = b.width / (winCount + 1);
+  // 창문
+  if (!isDark && rw > 60) {
+    const winCount = Math.max(1, Math.floor(rw / 55));
+    const winW = 16, winH = 12;
+    const winSpacing = rw / (winCount + 1);
     for (let i = 1; i <= winCount; i++) {
-      const wx = b.x + winSpacing * i - winW / 2;
-      const wy = backY + 6;
-      // Window frame
+      const wx = rx + winSpacing * i - winW / 2;
+      const wy = backY + 4;
       ctx.fillStyle = wallDark;
       ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
-      // Glass
       ctx.fillStyle = "#88c8ee";
       ctx.fillRect(wx, wy, winW, winH);
-      // Cross frame
       ctx.fillStyle = wallDark;
       ctx.fillRect(wx + winW / 2 - 0.5, wy, 1, winH);
       ctx.fillRect(wx, wy + winH / 2 - 0.5, winW, 1);
-      // Glass highlight
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
       ctx.fillRect(wx + 1, wy + 1, winW / 2 - 2, winH / 2 - 2);
     }
   }
 
-  // ── 바닥 (Floor — 나무 마루) ──
-  ctx.fillStyle = "#b8885c";
-  ctx.fillRect(b.x, b.y, b.width, b.height);
-
-  // 나무 판자 패턴
-  const plankH = 10; // 판자 높이
+  // ── 바닥 (나무 마루) ──
+  const plankH = 9;
   const plankColors = ["#c49670", "#b8885c", "#a87c50", "#c4986e", "#ae8458"];
   const grainColor = "rgba(80,50,20,0.12)";
-  const gapColor = "rgba(50,30,10,0.35)";
-  const knots: [number, number][] = []; // 옹이 위치
+  const gapColor = "rgba(50,30,10,0.3)";
 
-  let plankIdx = 0;
-  for (let py = b.y; py < b.y + b.height; py += plankH) {
-    const rowH = Math.min(plankH, b.y + b.height - py);
-    // 각 줄마다 판자 색상 교차
-    const baseColor = plankColors[plankIdx % plankColors.length];
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(b.x, py, b.width, rowH);
+  let plankIdx = Math.floor(rx * 0.1); // 방마다 다른 시작점
+  for (let py = ry; py < ry + rh; py += plankH) {
+    const rowH = Math.min(plankH, ry + rh - py);
+    ctx.fillStyle = plankColors[plankIdx % plankColors.length];
+    ctx.fillRect(rx, py, rw, rowH);
 
-    // 판자 내부 — 나뭇결 (가로 줄)
     ctx.strokeStyle = grainColor;
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.4;
     for (let g = 2; g < rowH - 1; g += 3) {
       ctx.beginPath();
-      ctx.moveTo(b.x, py + g);
-      // 약간 물결 치는 나뭇결
-      for (let gx = b.x; gx < b.x + b.width; gx += 8) {
-        const wave = Math.sin((gx + plankIdx * 30) * 0.15) * 0.8;
+      ctx.moveTo(rx, py + g);
+      for (let gx = rx; gx < rx + rw; gx += 8) {
+        const wave = Math.sin((gx + plankIdx * 25) * 0.15) * 0.6;
         ctx.lineTo(gx + 8, py + g + wave);
       }
       ctx.stroke();
     }
 
-    // 판자 이음새 (세로 — 줄마다 오프셋)
-    const plankW = 35 + (plankIdx % 3) * 10; // 판자 폭 변형
-    const offset = (plankIdx % 2) * 18;
+    const plankW = 30 + (plankIdx % 3) * 10;
+    const offset = (plankIdx % 2) * 15;
     ctx.strokeStyle = gapColor;
-    ctx.lineWidth = 1;
-    for (let sx = b.x + offset + plankW; sx < b.x + b.width; sx += plankW) {
-      ctx.beginPath();
-      ctx.moveTo(sx, py);
-      ctx.lineTo(sx, py + rowH);
-      ctx.stroke();
+    ctx.lineWidth = 0.8;
+    for (let sx = rx + offset + plankW; sx < rx + rw; sx += plankW) {
+      ctx.beginPath(); ctx.moveTo(sx, py); ctx.lineTo(sx, py + rowH); ctx.stroke();
     }
 
-    // 옹이 (knots) — 간헐적으로
-    if (plankIdx % 3 === 1) {
-      const knotX = b.x + 20 + (plankIdx * 47) % (b.width - 40);
-      const knotY = py + rowH / 2;
-      knots.push([knotX, knotY]);
-    }
-
-    // 판자 사이 경계선 (가로)
     ctx.fillStyle = gapColor;
-    ctx.fillRect(b.x, py + rowH - 1, b.width, 1);
-
+    ctx.fillRect(rx, py + rowH - 1, rw, 0.8);
     plankIdx++;
   }
 
-  // 옹이 그리기
-  knots.forEach(([kx, ky]) => {
-    ctx.fillStyle = "rgba(90,55,20,0.35)";
-    ctx.beginPath();
-    ctx.ellipse(kx, ky, 3, 2, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(70,40,15,0.25)";
-    ctx.beginPath();
-    ctx.ellipse(kx, ky, 5, 3.5, 0.3, 0, Math.PI * 2);
-    ctx.stroke();
-  });
-
-  // 바닥 전체에 미세한 광택 그라디언트
-  const floorShine = ctx.createLinearGradient(b.x, b.y, b.x + b.width * 0.7, b.y + b.height);
-  floorShine.addColorStop(0, "rgba(255,240,220,0.08)");
-  floorShine.addColorStop(0.5, "rgba(255,255,255,0.03)");
-  floorShine.addColorStop(1, "rgba(0,0,0,0.05)");
-  ctx.fillStyle = floorShine;
-  ctx.fillRect(b.x, b.y, b.width, b.height);
-
-  // ── 왼쪽 벽 (Left wall — 입체 사다리꼴) ──
-  ctx.fillStyle = wallMid;
-  ctx.beginPath();
-  ctx.moveTo(b.x, backY);           // 뒷벽 왼쪽 상단
-  ctx.lineTo(b.x, b.y + b.height);  // 바닥 왼쪽
-  ctx.lineTo(b.x + SIDE_W, b.y + b.height); // 바닥 안쪽
-  ctx.lineTo(b.x + SIDE_W, b.y);     // 바닥 경계 안쪽
-  ctx.lineTo(b.x, backY);
-  ctx.closePath();
-  ctx.fill();
-  // 왼벽 그림자 그라디언트
-  const lgr = ctx.createLinearGradient(b.x, b.y, b.x + SIDE_W, b.y);
+  // ── 좌벽 ──
+  ctx.fillStyle = shadeColor(wall, -5);
+  ctx.fillRect(rx, backY, SIDE_W, WALL_H);
+  const lgr = ctx.createLinearGradient(rx, ry, rx + SIDE_W, ry);
   lgr.addColorStop(0, wallDark);
   lgr.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = lgr;
-  ctx.fillRect(b.x, b.y, SIDE_W, b.height);
-  // 왼벽 내부 면 (밝은 쪽)
-  ctx.fillStyle = shadeColor(wall, -5);
-  ctx.fillRect(b.x, backY, SIDE_W, WALL_H);
-  // 왼벽 가장자리 라인
-  ctx.strokeStyle = wallDark;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(b.x + SIDE_W, b.y); ctx.lineTo(b.x + SIDE_W, b.y + b.height); ctx.stroke();
+  ctx.fillRect(rx, ry, SIDE_W, rh);
 
-  // ── 오른쪽 벽 (Right wall — 입체) ──
-  ctx.fillStyle = wallMid;
-  ctx.beginPath();
-  ctx.moveTo(b.x + b.width, backY);
-  ctx.lineTo(b.x + b.width, b.y + b.height);
-  ctx.lineTo(b.x + b.width - SIDE_W, b.y + b.height);
-  ctx.lineTo(b.x + b.width - SIDE_W, b.y);
-  ctx.lineTo(b.x + b.width, backY);
-  ctx.closePath();
-  ctx.fill();
-  // 오른벽 어두운 면
+  // ── 우벽 ──
   ctx.fillStyle = shadeColor(wall, -20);
-  ctx.fillRect(b.x + b.width - SIDE_W, backY, SIDE_W, WALL_H);
-  // 오른벽 바닥 그라디언트
-  const rgr = ctx.createLinearGradient(b.x + b.width - SIDE_W, b.y, b.x + b.width, b.y);
+  ctx.fillRect(rx + rw - SIDE_W, backY, SIDE_W, WALL_H);
+  const rgr = ctx.createLinearGradient(rx + rw - SIDE_W, ry, rx + rw, ry);
   rgr.addColorStop(0, "rgba(0,0,0,0)");
   rgr.addColorStop(1, wallDark);
   ctx.fillStyle = rgr;
-  ctx.fillRect(b.x + b.width - SIDE_W, b.y, SIDE_W, b.height);
-  // 오른벽 가장자리 라인
+  ctx.fillRect(rx + rw - SIDE_W, ry, SIDE_W, rh);
+
+  // ── 앞벽 ──
+  if (hasDoor) {
+    const doorX = rx + rw / 2 - doorGap / 2;
+    ctx.fillStyle = wall;
+    ctx.fillRect(rx, ry + rh, doorX - rx, BOTTOM_H);
+    ctx.fillRect(doorX + doorGap, ry + rh, rx + rw - doorX - doorGap, BOTTOM_H);
+    ctx.fillStyle = shadeColor(wall, 20);
+    ctx.fillRect(doorX, ry + rh, doorGap, BOTTOM_H);
+    ctx.fillStyle = "#8b6914";
+    ctx.fillRect(doorX + 4, ry + rh + BOTTOM_H - 2, doorGap - 8, 2);
+  } else {
+    ctx.fillStyle = wall;
+    ctx.fillRect(rx, ry + rh, rw, BOTTOM_H);
+  }
+  ctx.fillStyle = wallLight;
+  ctx.fillRect(rx, ry + rh, rw, 1);
+
+  // ── 외곽 라인 ──
   ctx.strokeStyle = wallDark;
   ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(b.x + b.width - SIDE_W, b.y); ctx.lineTo(b.x + b.width - SIDE_W, b.y + b.height); ctx.stroke();
+  ctx.strokeRect(rx, backY, rw, WALL_H);
+  ctx.beginPath();
+  ctx.moveTo(rx, ry); ctx.lineTo(rx, ry + rh + BOTTOM_H);
+  ctx.lineTo(rx + rw, ry + rh + BOTTOM_H); ctx.lineTo(rx + rw, ry);
+  ctx.stroke();
+}
 
-  // ── 앞벽 (Bottom wall — 문 포함) ──
-  const doorX = b.x + b.width / 2 - doorGap / 2;
-  // 앞벽 왼쪽
-  ctx.fillStyle = wall;
-  ctx.fillRect(b.x, b.y + b.height, doorX - b.x, BOTTOM_H);
-  // 앞벽 오른쪽
-  ctx.fillRect(doorX + doorGap, b.y + b.height, b.x + b.width - doorX - doorGap, BOTTOM_H);
-  // 앞벽 상단 엣지 (밝은)
-  ctx.fillStyle = wallLight;
-  ctx.fillRect(b.x, b.y + b.height, doorX - b.x, 1.5);
-  ctx.fillRect(doorX + doorGap, b.y + b.height, b.x + b.width - doorX - doorGap, 1.5);
-  // 앞벽 하단 그림자
-  ctx.fillStyle = wallDark;
-  ctx.fillRect(b.x, b.y + b.height + BOTTOM_H - 1, b.width, 1);
+export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
+  const wall = isDark ? "#2a2040" : b.wallColor;
+  const floor = isDark ? "#1a1530" : b.floorColor;
+  const wallDark = shadeColor(wall, -30);
+  const wallMid = shadeColor(wall, -15);
+  const wallLight = shadeColor(wall, 20);
 
-  // ── 문 (Door opening) ──
-  // 문 바닥
-  ctx.fillStyle = shadeColor(floor, 20);
-  ctx.fillRect(doorX, b.y + b.height, doorGap, BOTTOM_H);
-  // 문턱
-  ctx.fillStyle = "#8b6914";
-  ctx.fillRect(doorX + 3, b.y + b.height + BOTTOM_H - 3, doorGap - 6, 3);
-  // 문 옆 기둥 그림자
-  ctx.fillStyle = wallDark;
-  ctx.fillRect(doorX - 1, b.y + b.height, 2, BOTTOM_H);
-  ctx.fillRect(doorX + doorGap - 1, b.y + b.height, 2, BOTTOM_H);
+  // Wings 먼저 (메인 뒤에 깔리도록)
+  if (b.wings) {
+    b.wings.forEach(w => {
+      const wx = b.x + w.dx;
+      const wy = b.y + w.dy;
+      drawRoom(ctx, wx, wy, w.w, w.h, wall, wallDark, wallMid, wallLight, isDark, false, false);
+    });
+  }
 
-  // ── 벽-바닥 경계 그림자 (뒷벽 + 좌우벽 아래) ──
-  const shadowGr = ctx.createLinearGradient(b.x, b.y, b.x, b.y + 8);
-  shadowGr.addColorStop(0, "rgba(0,0,0,0.15)");
-  shadowGr.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = shadowGr;
-  ctx.fillRect(b.x + SIDE_W, b.y, b.width - SIDE_W * 2, 8);
+  // 메인 건물
+  drawRoom(ctx, b.x, b.y, b.width, b.height, wall, wallDark, wallMid, wallLight, isDark, true, true);
 
-  // 좌벽 바닥 그림자
-  const lShadow = ctx.createLinearGradient(b.x + SIDE_W, b.y, b.x + SIDE_W + 6, b.y);
-  lShadow.addColorStop(0, "rgba(0,0,0,0.1)");
-  lShadow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = lShadow;
-  ctx.fillRect(b.x + SIDE_W, b.y, 6, b.height);
+  // 연결 부위 벽 제거 (바닥으로 채우기) — wing과 메인이 만나는 곳
+  if (b.wings) {
+    const plankColors = ["#c49670", "#b8885c", "#a87c50"];
+    b.wings.forEach(w => {
+      const wx = b.x + w.dx;
+      const wy = b.y + w.dy;
 
-  // ── 가구 (Furniture) ──
+      // 겹치는 영역 계산
+      const overlapX1 = Math.max(b.x, wx);
+      const overlapX2 = Math.min(b.x + b.width, wx + w.w);
+      const overlapY1 = Math.max(b.y, wy);
+      const overlapY2 = Math.min(b.y + b.height, wy + w.h);
+
+      if (overlapX1 < overlapX2 && overlapY1 < overlapY2) {
+        // 겹치는 부분을 바닥색으로 채워서 벽 제거 효과
+        ctx.fillStyle = plankColors[0];
+        ctx.fillRect(overlapX1, overlapY1, overlapX2 - overlapX1, overlapY2 - overlapY1);
+      }
+
+      // 인접 벽 연결 — 이음새 부분 부드럽게
+      // 수평 인접 (왼쪽/오른쪽)
+      if (Math.abs(wx + w.w - b.x) < 15 || Math.abs(b.x + b.width - wx) < 15) {
+        const connY1 = Math.max(b.y, wy);
+        const connY2 = Math.min(b.y + b.height, wy + w.h);
+        if (connY1 < connY2) {
+          const connX = wx + w.w > b.x + b.width / 2 ? Math.min(b.x + b.width, wx + w.w) - 8 : Math.max(b.x, wx);
+          ctx.fillStyle = plankColors[1];
+          ctx.fillRect(connX - 2, connY1, 12, connY2 - connY1);
+        }
+      }
+      // 수직 인접 (위/아래)
+      if (Math.abs(wy + w.h - b.y) < 15 || Math.abs(b.y + b.height - wy) < 15) {
+        const connX1 = Math.max(b.x, wx);
+        const connX2 = Math.min(b.x + b.width, wx + w.w);
+        if (connX1 < connX2) {
+          const connY = wy + w.h > b.y + b.height / 2 ? Math.min(b.y + b.height, wy + w.h) - 4 : Math.max(b.y, wy);
+          ctx.fillStyle = plankColors[2];
+          ctx.fillRect(connX1, connY - 2, connX2 - connX1, 10);
+        }
+      }
+    });
+  }
+
+  // ── 가구 (모든 방 공통) ──
   if (!isDark) {
     b.furniture.forEach(f => drawFurniture(ctx, f, b.x, b.y));
   }
 
-  // ── 외곽 라인 ──
-  ctx.strokeStyle = wallDark;
-  ctx.lineWidth = 2;
-  // 뒷벽 외곽
-  ctx.strokeRect(b.x, backY, b.width, WALL_H);
-  // 전체 바닥 + 앞벽
-  ctx.beginPath();
-  ctx.moveTo(b.x, b.y);
-  ctx.lineTo(b.x, b.y + b.height + BOTTOM_H);
-  ctx.lineTo(b.x + b.width, b.y + b.height + BOTTOM_H);
-  ctx.lineTo(b.x + b.width, b.y);
-  ctx.stroke();
-
   // ── 건물 이름 ──
+  const backY = b.y - (true ? 28 : 20);
   ctx.font = "bold 11px sans-serif";
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";

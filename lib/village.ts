@@ -124,6 +124,13 @@ export const INTERACTION_DISTANCE = 50; // 가까이 오면 대화 시작
 export const BUBBLE_DURATION = 5000; // 5 seconds
 
 // Buildings
+export interface BuildingWing {
+  dx: number;  // 메인 건물 x 기준 오프셋
+  dy: number;  // 메인 건물 y 기준 오프셋
+  w: number;
+  h: number;
+}
+
 export interface Building {
   id: string;
   name: string;
@@ -136,6 +143,7 @@ export interface Building {
   wallColor: string;
   floorColor: string; // interior floor color
   furniture: Furniture[]; // interior items
+  wings?: BuildingWing[]; // 추가 날개 (L자, T자 등)
 }
 
 export interface Furniture {
@@ -148,70 +156,85 @@ export interface Furniture {
 
 export const VILLAGE_BUILDINGS: Building[] = [
   {
-    // 민수의 집 — 개발자답게 넓은 작업실 (가로로 긴 직사각형)
-    id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 60, y: 80, width: 200, height: 110, roofColor: "#6366f1", wallColor: "#c7d2fe", floorColor: "#e8dcc8",
+    // 민수의 집 — L자형 (메인 + 오른쪽 아래 서재)
+    id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 60, y: 80, width: 160, height: 110, roofColor: "#6366f1", wallColor: "#c7d2fe", floorColor: "#e8dcc8",
+    wings: [{ dx: 100, dy: 70, w: 100, h: 80 }], // 오른쪽 아래로 서재 돌출
     furniture: [
       { type: "bed", x: 12, y: 35, w: 40, h: 30 },
       { type: "desk", x: 70, y: 15, w: 55, h: 25 },
-      { type: "desk", x: 135, y: 15, w: 55, h: 25 },
       { type: "chair", x: 90, y: 45, w: 15, h: 15 },
-      { type: "chair", x: 155, y: 45, w: 15, h: 15 },
       { type: "bookshelf", x: 12, y: 12, w: 40, h: 18 },
-      { type: "plant", x: 175, y: 75, w: 15, h: 15 },
+      { type: "plant", x: 130, y: 15, w: 15, h: 15 },
+      // 서재 wing
+      { type: "desk", x: 115, y: 85, w: 55, h: 25 },
+      { type: "bookshelf", x: 115, y: 115, w: 55, h: 18 },
+      { type: "chair", x: 175, y: 85, w: 15, h: 15 },
     ],
   },
   {
-    // 지은의 집 — 아티스트 아틀리에 (세로로 긴 직사각형)
-    id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1340, y: 60, width: 130, height: 160, roofColor: "#ec4899", wallColor: "#fbcfe8", floorColor: "#f0e0e8",
+    // 지은의 집 — ㄱ자형 (메인 + 왼쪽 위로 발코니/화실)
+    id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1340, y: 60, width: 130, height: 140, roofColor: "#ec4899", wallColor: "#fbcfe8", floorColor: "#f0e0e8",
+    wings: [{ dx: -80, dy: 0, w: 90, h: 80 }], // 왼쪽으로 화실 돌출
     furniture: [
       { type: "bed", x: 12, y: 15, w: 40, h: 30 },
-      { type: "desk", x: 65, y: 15, w: 50, h: 25 },
-      { type: "sofa", x: 15, y: 110, w: 45, h: 20 },
-      { type: "plant", x: 15, y: 60, w: 15, h: 15 },
-      { type: "plant", x: 100, y: 130, w: 15, h: 15 },
-      { type: "bookshelf", x: 70, y: 55, w: 45, h: 18 },
+      { type: "sofa", x: 15, y: 100, w: 45, h: 20 },
+      { type: "plant", x: 100, y: 110, w: 15, h: 15 },
+      // 화실 wing
+      { type: "desk", x: -65, y: 15, w: 55, h: 25 },
+      { type: "plant", x: -70, y: 50, w: 15, h: 15 },
+      { type: "bookshelf", x: -20, y: 50, w: 40, h: 18 },
     ],
   },
   {
-    // 준호의 집 — 탐험가의 아지트 (정사각형에 가까운 넉넉한 공간)
-    id: "house-junho", name: "준호의 집", emoji: "🏠", x: 60, y: 880, width: 150, height: 140, roofColor: "#14b8a6", wallColor: "#ccfbf1", floorColor: "#d8e8e0",
+    // 준호의 집 — T자형 (메인 + 위로 전망대)
+    id: "house-junho", name: "준호의 집", emoji: "🏠", x: 60, y: 920, width: 150, height: 120, roofColor: "#14b8a6", wallColor: "#ccfbf1", floorColor: "#d8e8e0",
+    wings: [{ dx: 25, dy: -65, w: 100, h: 75 }], // 위로 전망대 돌출
     furniture: [
       { type: "bed", x: 12, y: 40, w: 40, h: 30 },
-      { type: "bookshelf", x: 12, y: 12, w: 50, h: 20 },
       { type: "desk", x: 90, y: 40, w: 45, h: 25 },
-      { type: "chair", x: 100, y: 70, w: 15, h: 15 },
       { type: "plant", x: 70, y: 12, w: 15, h: 15 },
-      { type: "table", x: 40, y: 95, w: 50, h: 25 },
+      { type: "table", x: 40, y: 80, w: 50, h: 25 },
+      // 전망대 wing
+      { type: "bookshelf", x: 35, y: -50, w: 50, h: 18 },
+      { type: "chair", x: 95, y: -40, w: 15, h: 15 },
     ],
   },
   {
-    // 하나의 집 — 과학자 실험실 (가로로 좀 더 넓은)
-    id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1280, y: 880, width: 190, height: 120, roofColor: "#f59e0b", wallColor: "#fef3c7", floorColor: "#f0e8d0",
+    // 하나의 집 — ㄴ자형 (메인 + 왼쪽 아래 실험실)
+    id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1300, y: 880, width: 170, height: 110, roofColor: "#f59e0b", wallColor: "#fef3c7", floorColor: "#f0e8d0",
+    wings: [{ dx: -70, dy: 50, w: 110, h: 80 }], // 왼쪽 아래로 실험실
     furniture: [
-      { type: "bed", x: 140, y: 35, w: 40, h: 30 },
+      { type: "bed", x: 120, y: 30, w: 40, h: 30 },
       { type: "desk", x: 12, y: 15, w: 55, h: 25 },
-      { type: "desk", x: 75, y: 15, w: 55, h: 25 },
       { type: "bookshelf", x: 12, y: 50, w: 50, h: 18 },
-      { type: "plant", x: 160, y: 80, w: 15, h: 15 },
-      { type: "chair", x: 35, y: 50, w: 15, h: 15 },
+      { type: "plant", x: 140, y: 75, w: 15, h: 15 },
+      // 실험실 wing
+      { type: "desk", x: -55, y: 65, w: 55, h: 25 },
+      { type: "stove", x: -55, y: 100, w: 30, h: 25 },
+      { type: "chair", x: 10, y: 100, w: 15, h: 15 },
     ],
   },
   {
-    // 태현의 집 — 셰프의 넓은 주방 (가로로 아주 넓은)
-    id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 650, y: 40, width: 220, height: 100, roofColor: "#ef4444", wallColor: "#fecaca", floorColor: "#f0d8c8",
+    // 태현의 집 — ㅗ자형 (넓은 주방 + 아래로 식당)
+    id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 650, y: 40, width: 220, height: 90, roofColor: "#ef4444", wallColor: "#fecaca", floorColor: "#f0d8c8",
+    wings: [{ dx: 50, dy: 80, w: 120, h: 80 }], // 아래 가운데로 식당 돌출
     furniture: [
-      { type: "bed", x: 12, y: 30, w: 40, h: 28 },
+      { type: "bed", x: 12, y: 20, w: 40, h: 28 },
       { type: "stove", x: 70, y: 12, w: 35, h: 25 },
       { type: "stove", x: 115, y: 12, w: 35, h: 25 },
       { type: "counter", x: 70, y: 45, w: 80, h: 18 },
-      { type: "table", x: 165, y: 20, w: 45, h: 30 },
-      { type: "chair", x: 170, y: 55, w: 15, h: 15 },
-      { type: "plant", x: 195, y: 75, w: 15, h: 15 },
+      { type: "plant", x: 190, y: 60, w: 15, h: 15 },
+      // 식당 wing
+      { type: "table", x: 75, y: 95, w: 45, h: 30 },
+      { type: "chair", x: 65, y: 130, w: 15, h: 15 },
+      { type: "chair", x: 130, y: 130, w: 15, h: 15 },
+      { type: "table", x: 75, y: 130, w: 45, h: 20 },
     ],
   },
   {
-    // 카페 — L자 카운터가 있는 아늑한 공간 (좀 더 넓고 높게)
-    id: "cafe", name: "마을 카페", emoji: "☕", x: 50, y: 380, width: 240, height: 170, roofColor: "#92400e", wallColor: "#fde68a", floorColor: "#f5e6c8",
+    // 카페 — L자 대형 (메인 홀 + 오른쪽 테라스)
+    id: "cafe", name: "마을 카페", emoji: "☕", x: 50, y: 380, width: 200, height: 170, roofColor: "#92400e", wallColor: "#fde68a", floorColor: "#f5e6c8",
+    wings: [{ dx: 180, dy: 40, w: 100, h: 130 }], // 오른쪽 테라스
     furniture: [
       { type: "counter", x: 12, y: 15, w: 70, h: 22 },
       { type: "counter", x: 12, y: 40, w: 25, h: 50 },
@@ -220,32 +243,44 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "chair", x: 100, y: 58, w: 15, h: 15 },
       { type: "chair", x: 140, y: 58, w: 15, h: 15 },
       { type: "table", x: 110, y: 90, w: 40, h: 28 },
-      { type: "chair", x: 100, y: 122, w: 15, h: 15 },
-      { type: "chair", x: 140, y: 122, w: 15, h: 15 },
-      { type: "table", x: 185, y: 55, w: 40, h: 28 },
-      { type: "sofa", x: 180, y: 110, w: 48, h: 22 },
-      { type: "plant", x: 210, y: 15, w: 15, h: 15 },
+      { type: "plant", x: 165, y: 15, w: 15, h: 15 },
+      // 테라스 wing
+      { type: "table", x: 200, y: 55, w: 40, h: 28 },
+      { type: "chair", x: 195, y: 88, w: 15, h: 15 },
+      { type: "chair", x: 235, y: 88, w: 15, h: 15 },
+      { type: "sofa", x: 195, y: 115, w: 55, h: 22 },
+      { type: "plant", x: 255, y: 50, w: 15, h: 15 },
+      { type: "plant", x: 255, y: 145, w: 15, h: 15 },
     ],
   },
   {
-    // 도서관 — 세로로 긴 건물 (서가가 가득)
-    id: "library", name: "도서관", emoji: "📚", x: 1050, y: 380, width: 180, height: 200, roofColor: "#166534", wallColor: "#dcfce7", floorColor: "#e0d8c8",
+    // 도서관 — T자형 (입구 홀 + 서가 양쪽 날개)
+    id: "library", name: "도서관", emoji: "📚", x: 1080, y: 400, width: 120, height: 200, roofColor: "#166534", wallColor: "#dcfce7", floorColor: "#e0d8c8",
+    wings: [
+      { dx: -100, dy: 0, w: 110, h: 120 },  // 왼쪽 서가
+      { dx: 110, dy: 0, w: 110, h: 120 },   // 오른쪽 서가
+    ],
     furniture: [
-      { type: "bookshelf", x: 12, y: 15, w: 50, h: 20 },
-      { type: "bookshelf", x: 12, y: 42, w: 50, h: 20 },
-      { type: "bookshelf", x: 12, y: 69, w: 50, h: 20 },
-      { type: "bookshelf", x: 115, y: 15, w: 50, h: 20 },
-      { type: "bookshelf", x: 115, y: 42, w: 50, h: 20 },
-      { type: "desk", x: 50, y: 110, w: 55, h: 25 },
-      { type: "desk", x: 50, y: 145, w: 55, h: 25 },
-      { type: "chair", x: 115, y: 115, w: 15, h: 15 },
-      { type: "chair", x: 115, y: 150, w: 15, h: 15 },
-      { type: "plant", x: 145, y: 170, w: 15, h: 15 },
+      // 중앙 홀
+      { type: "desk", x: 20, y: 130, w: 55, h: 25 },
+      { type: "chair", x: 35, y: 160, w: 15, h: 15 },
+      { type: "fountain", x: 30, y: 60, w: 50, h: 45 },
+      // 왼쪽 서가 wing
+      { type: "bookshelf", x: -85, y: 15, w: 50, h: 20 },
+      { type: "bookshelf", x: -85, y: 42, w: 50, h: 20 },
+      { type: "bookshelf", x: -85, y: 69, w: 50, h: 20 },
+      { type: "desk", x: -60, y: 95, w: 50, h: 18 },
+      // 오른쪽 서가 wing
+      { type: "bookshelf", x: 125, y: 15, w: 50, h: 20 },
+      { type: "bookshelf", x: 125, y: 42, w: 50, h: 20 },
+      { type: "bookshelf", x: 125, y: 69, w: 50, h: 20 },
+      { type: "desk", x: 130, y: 95, w: 50, h: 18 },
+      { type: "plant", x: 190, y: 95, w: 15, h: 15 },
     ],
   },
   {
-    // 마을 광장 — 가장 큰 열린 공간 (정사각형에 가까운 넓은)
-    id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 480, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#e5e7eb", floorColor: "#d0ccc4",
+    // 마을 광장 — 단순 큰 사각형 (광장은 원래 넓으니까)
+    id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 500, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#e5e7eb", floorColor: "#d0ccc4",
     furniture: [
       { type: "fountain", x: 110, y: 75, w: 65, h: 65 },
       { type: "bench", x: 20, y: 40, w: 45, h: 15 },
@@ -257,17 +292,25 @@ export const VILLAGE_BUILDINGS: Building[] = [
     ],
   },
   {
-    // 공원 — 가로로 넓은 자연 공간
-    id: "park", name: "공원", emoji: "🌳", x: 350, y: 800, width: 260, height: 150, roofColor: "#15803d", wallColor: "#86efac", floorColor: "#90c878",
+    // 공원 — ㄷ자형 (가운데 열린 잔디 + 양쪽 숲)
+    id: "park", name: "공원", emoji: "🌳", x: 350, y: 830, width: 180, height: 100, roofColor: "#15803d", wallColor: "#86efac", floorColor: "#90c878",
+    wings: [
+      { dx: -20, dy: -60, w: 80, h: 70 },   // 왼쪽 위 숲
+      { dx: 120, dy: -60, w: 80, h: 70 },   // 오른쪽 위 숲
+    ],
     furniture: [
-      { type: "tree_indoor", x: 20, y: 20, w: 35, h: 35 },
-      { type: "tree_indoor", x: 200, y: 20, w: 35, h: 35 },
-      { type: "tree_indoor", x: 20, y: 95, w: 35, h: 35 },
-      { type: "tree_indoor", x: 200, y: 95, w: 35, h: 35 },
-      { type: "bench", x: 80, y: 35, w: 50, h: 15 },
-      { type: "bench", x: 80, y: 100, w: 50, h: 15 },
-      { type: "fountain", x: 100, y: 55, w: 50, h: 45 },
-      { type: "bench", x: 155, y: 65, w: 40, h: 15 },
+      // 중앙
+      { type: "fountain", x: 60, y: 20, w: 55, h: 50 },
+      { type: "bench", x: 15, y: 65, w: 45, h: 15 },
+      { type: "bench", x: 120, y: 65, w: 45, h: 15 },
+      // 왼쪽 숲 wing
+      { type: "tree_indoor", x: -5, y: -45, w: 35, h: 35 },
+      { type: "tree_indoor", x: 35, y: -45, w: 30, h: 30 },
+      { type: "bench", x: 0, y: -15, w: 40, h: 15 },
+      // 오른쪽 숲 wing
+      { type: "tree_indoor", x: 135, y: -45, w: 35, h: 35 },
+      { type: "tree_indoor", x: 170, y: -45, w: 30, h: 30 },
+      { type: "bench", x: 140, y: -15, w: 40, h: 15 },
     ],
   },
 ];
@@ -307,11 +350,16 @@ export function randomPosition() {
 
 // Get a random walkable point inside a building
 function insideBuilding(b: Building): { x: number; y: number } {
-  // Avoid walls (6px border) and furniture roughly
+  // 메인 방 또는 wing 중 하나에 랜덤 배치
+  const rooms = [{ x: b.x, y: b.y, w: b.width, h: b.height }];
+  if (b.wings) {
+    b.wings.forEach(w => rooms.push({ x: b.x + w.dx, y: b.y + w.dy, w: w.w, h: w.h }));
+  }
+  const room = rooms[Math.floor(Math.random() * rooms.length)];
   const margin = 15;
   return {
-    x: b.x + margin + Math.random() * (b.width - margin * 2),
-    y: b.y + margin + Math.random() * (b.height - margin * 2),
+    x: room.x + margin + Math.random() * (room.w - margin * 2),
+    y: room.y + margin + Math.random() * (room.h - margin * 2),
   };
 }
 
