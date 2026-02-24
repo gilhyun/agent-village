@@ -222,6 +222,75 @@ export default function VillagePage() {
   }, []);
 
   // God decree
+  // ➕ 이민자 생성
+  const IMMIGRANT_NAMES = ["도윤", "서연", "시우", "하린", "예준", "소율", "지호", "다은", "현우", "수아", "건우", "채원", "유준", "은서", "정우", "하윤", "승우", "지유", "도현", "서윤"];
+  const IMMIGRANT_EMOJIS = ["👨‍🎤", "👩‍💼", "🧑‍🏫", "👨‍🌾", "👩‍🎓", "🧑‍🔧", "👨‍⚕️", "👩‍🚒", "🧑‍🎨", "👨‍✈️", "👩‍🔬", "🧑‍💻", "👨‍🍳", "👩‍🏭", "🧑‍⚖️"];
+  const IMMIGRANT_PERSONALITIES = [
+    "음악을 사랑하는 가수. 항상 흥얼거리며 다닌다.",
+    "야심찬 사업가. 부자가 되는 게 꿈이다.",
+    "다정한 선생님. 아이들을 가르치는 걸 좋아한다.",
+    "자연을 사랑하는 농부. 땅에서 일하는 게 행복하다.",
+    "호기심 넘치는 학생. 모든 걸 배우고 싶어한다.",
+    "뚝딱뚝딱 수리공. 고장난 걸 고치는 게 취미다.",
+    "따뜻한 의사. 사람들을 돌보는 게 사명이다.",
+    "용감한 소방관. 위험 앞에서 물러서지 않는다.",
+    "자유로운 예술가. 세상을 캔버스로 본다.",
+    "꼼꼼한 회계사. 숫자가 세상을 움직인다고 믿는다.",
+  ];
+  const IMMIGRANT_PRODUCTS = [
+    { name: "음악 앨범", emoji: "🎵", price: 400_000, description: "직접 작곡한 음악 앨범" },
+    { name: "비즈니스 계획서", emoji: "📋", price: 700_000, description: "성공 비결이 담긴 계획서" },
+    { name: "교과서", emoji: "📚", price: 200_000, description: "알기 쉬운 교과서" },
+    { name: "유기농 채소", emoji: "🥬", price: 150_000, description: "직접 키운 유기농 채소" },
+    { name: "수제 쿠키", emoji: "🍪", price: 300_000, description: "정성 가득 수제 쿠키" },
+    { name: "수리 도구", emoji: "🔧", price: 500_000, description: "만능 수리 도구 세트" },
+    { name: "약초", emoji: "🌿", price: 350_000, description: "효능 좋은 약초 세트" },
+    { name: "보호 장비", emoji: "🛡️", price: 600_000, description: "튼튼한 보호 장비" },
+  ];
+  const IMMIGRANT_COLORS = ["#ff6b6b", "#ffa502", "#2ed573", "#1e90ff", "#ff4757", "#7bed9f", "#70a1ff", "#eccc68", "#a29bfe", "#fd79a8", "#00cec9", "#6c5ce7"];
+
+  const spawnImmigrant = useCallback(() => {
+    const existingNames = agentsRef.current.map(a => a.name);
+    const availableNames = IMMIGRANT_NAMES.filter(n => !existingNames.includes(n));
+    if (availableNames.length === 0) return; // 이름 소진
+
+    const name = availableNames[Math.floor(Math.random() * availableNames.length)];
+    const emoji = IMMIGRANT_EMOJIS[Math.floor(Math.random() * IMMIGRANT_EMOJIS.length)];
+    const personality = IMMIGRANT_PERSONALITIES[Math.floor(Math.random() * IMMIGRANT_PERSONALITIES.length)];
+    const product = IMMIGRANT_PRODUCTS[Math.floor(Math.random() * IMMIGRANT_PRODUCTS.length)];
+    const color = IMMIGRANT_COLORS[Math.floor(Math.random() * IMMIGRANT_COLORS.length)];
+    const id = `agent-imm-${Date.now()}`;
+
+    // 맵 가장자리에서 등장 (이민자니까!)
+    const edge = Math.floor(Math.random() * 4);
+    let x: number, y: number;
+    if (edge === 0) { x = 10; y = Math.random() * MAP_HEIGHT; }       // 왼쪽
+    else if (edge === 1) { x = MAP_WIDTH - 10; y = Math.random() * MAP_HEIGHT; }  // 오른쪽
+    else if (edge === 2) { x = Math.random() * MAP_WIDTH; y = 10; }    // 위
+    else { x = Math.random() * MAP_WIDTH; y = MAP_HEIGHT - 10; }       // 아래
+
+    const pos = randomPosition();
+    const newAgent: Agent = {
+      id, name, emoji, color, personality,
+      x, y,
+      targetX: pos.x, targetY: pos.y,
+      speed: 1.6 + Math.random() * 1.2,
+      state: "walking",
+      talkingTo: null,
+      destination: null,
+      homeId: null, // 집 없는 이민자!
+      coins: 10_000_000 + Math.floor(Math.random() * 40_000_000), // 1천만~5천만 가지고 옴
+      product,
+      reputation: 30 + Math.floor(Math.random() * 20), // 새로온 사람은 평판 낮음
+    };
+
+    agentsRef.current = [...agentsRef.current, newAgent];
+    setAgents([...agentsRef.current]);
+    setConversationLog(prev => [`🌍 새 이민자 ${emoji} ${name}이(가) 마을에 도착했습니다! "${personality.slice(0, 20)}..."`, ...prev].slice(0, 50));
+    bubblesRef.current = [...bubblesRef.current, { id: `imm-${Date.now()}`, agentId: id, text: "🌍 안녕하세요!", timestamp: Date.now(), duration: 6000 }];
+    setBubbles([...bubblesRef.current]);
+  }, []);
+
   const sendDecree = useCallback(async () => {
     if (!godMessage.trim() || isSendingDecree) return;
     setIsSendingDecree(true);
@@ -1459,6 +1528,10 @@ export default function VillagePage() {
           <span className="ml-2 px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
             👥 인구: {agents.length}명
           </span>
+          <button onClick={spawnImmigrant}
+            className="ml-2 px-3 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold hover:bg-green-500/30 transition-all">
+            ➕ 이민자
+          </button>
         </div>
       </div>
 
