@@ -222,72 +222,144 @@ export default function VillagePage() {
   }, []);
 
   // God decree
-  // ➕ 이민자 생성
-  const IMMIGRANT_NAMES = ["도윤", "서연", "시우", "하린", "예준", "소율", "지호", "다은", "현우", "수아", "건우", "채원", "유준", "은서", "정우", "하윤", "승우", "지유", "도현", "서윤"];
-  const IMMIGRANT_EMOJIS = ["👨‍🎤", "👩‍💼", "🧑‍🏫", "👨‍🌾", "👩‍🎓", "🧑‍🔧", "👨‍⚕️", "👩‍🚒", "🧑‍🎨", "👨‍✈️", "👩‍🔬", "🧑‍💻", "👨‍🍳", "👩‍🏭", "🧑‍⚖️"];
-  const IMMIGRANT_PERSONALITIES = [
-    "음악을 사랑하는 가수. 항상 흥얼거리며 다닌다.",
-    "야심찬 사업가. 부자가 되는 게 꿈이다.",
-    "다정한 선생님. 아이들을 가르치는 걸 좋아한다.",
-    "자연을 사랑하는 농부. 땅에서 일하는 게 행복하다.",
-    "호기심 넘치는 학생. 모든 걸 배우고 싶어한다.",
-    "뚝딱뚝딱 수리공. 고장난 걸 고치는 게 취미다.",
-    "따뜻한 의사. 사람들을 돌보는 게 사명이다.",
-    "용감한 소방관. 위험 앞에서 물러서지 않는다.",
-    "자유로운 예술가. 세상을 캔버스로 본다.",
-    "꼼꼼한 회계사. 숫자가 세상을 움직인다고 믿는다.",
-  ];
-  const IMMIGRANT_PRODUCTS = [
-    { name: "음악 앨범", emoji: "🎵", price: 400_000, description: "직접 작곡한 음악 앨범" },
-    { name: "비즈니스 계획서", emoji: "📋", price: 700_000, description: "성공 비결이 담긴 계획서" },
-    { name: "교과서", emoji: "📚", price: 200_000, description: "알기 쉬운 교과서" },
-    { name: "유기농 채소", emoji: "🥬", price: 150_000, description: "직접 키운 유기농 채소" },
-    { name: "수제 쿠키", emoji: "🍪", price: 300_000, description: "정성 가득 수제 쿠키" },
-    { name: "수리 도구", emoji: "🔧", price: 500_000, description: "만능 수리 도구 세트" },
-    { name: "약초", emoji: "🌿", price: 350_000, description: "효능 좋은 약초 세트" },
-    { name: "보호 장비", emoji: "🛡️", price: 600_000, description: "튼튼한 보호 장비" },
-  ];
-  const IMMIGRANT_COLORS = ["#ff6b6b", "#ffa502", "#2ed573", "#1e90ff", "#ff4757", "#7bed9f", "#70a1ff", "#eccc68", "#a29bfe", "#fd79a8", "#00cec9", "#6c5ce7"];
+  // ➕ 에이전트 생성 시스템 (직업별)
+  const SPAWN_NAMES = ["도윤", "서연", "시우", "하린", "예준", "소율", "지호", "다은", "현우", "수아", "건우", "채원", "유준", "은서", "정우", "하윤", "승우", "지유", "도현", "서윤", "민재", "소희", "준서", "하은", "윤서", "시현", "재민", "유나", "태민", "지수"];
 
-  const spawnImmigrant = useCallback(() => {
+  type AgentClass = "civilian" | "police" | "soldier" | "thug";
+
+  const CLASS_CONFIG: Record<AgentClass, {
+    label: string; btnEmoji: string; btnColor: string;
+    emojis: string[]; personalities: string[];
+    products: { name: string; emoji: string; price: number; description: string }[];
+    colors: string[];
+    speedRange: [number, number]; coinsRange: [number, number]; repRange: [number, number];
+    arrivalMsg: string; bubbleMsg: string;
+    stealChanceMult: number; // 도둑질 확률 배수
+  }> = {
+    civilian: {
+      label: "시민", btnEmoji: "👤", btnColor: "bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30",
+      emojis: ["👨‍🎤", "👩‍💼", "🧑‍🏫", "👨‍🌾", "👩‍🎓", "🧑‍🔧", "👨‍⚕️", "👩‍🚒", "🧑‍🎨", "👨‍🍳"],
+      personalities: [
+        "음악을 사랑하는 가수. 항상 흥얼거리며 다닌다.",
+        "야심찬 사업가. 부자가 되는 게 꿈이다.",
+        "다정한 선생님. 아이들을 가르치는 걸 좋아한다.",
+        "자연을 사랑하는 농부. 땅에서 일하는 게 행복하다.",
+        "따뜻한 의사. 사람들을 돌보는 게 사명이다.",
+        "자유로운 예술가. 세상을 캔버스로 본다.",
+      ],
+      products: [
+        { name: "음악 앨범", emoji: "🎵", price: 400_000, description: "직접 작곡한 음악 앨범" },
+        { name: "유기농 채소", emoji: "🥬", price: 150_000, description: "직접 키운 유기농 채소" },
+        { name: "수제 쿠키", emoji: "🍪", price: 300_000, description: "정성 가득 수제 쿠키" },
+        { name: "약초", emoji: "🌿", price: 350_000, description: "효능 좋은 약초 세트" },
+      ],
+      colors: ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#a78bfa"],
+      speedRange: [1.6, 2.4], coinsRange: [10_000_000, 50_000_000], repRange: [40, 60],
+      arrivalMsg: "마을에 도착했습니다!", bubbleMsg: "🌍 안녕하세요!",
+      stealChanceMult: 1,
+    },
+    police: {
+      label: "경찰", btnEmoji: "👮", btnColor: "bg-sky-500/20 text-sky-300 border-sky-500/30 hover:bg-sky-500/30",
+      emojis: ["👮", "👮‍♂️", "👮‍♀️", "🕵️", "🕵️‍♂️"],
+      personalities: [
+        "정의로운 경찰관. 법과 질서를 수호한다. 도둑을 절대 용납하지 않는다.",
+        "베테랑 형사. 범죄 현장을 놓치지 않는 날카로운 눈을 가졌다.",
+        "순찰 경찰. 마을을 돌아다니며 주민들의 안전을 지킨다.",
+        "강력반 형사. 범죄자를 추적하는 데 탁월한 능력을 가졌다.",
+      ],
+      products: [
+        { name: "안전 가이드", emoji: "📘", price: 200_000, description: "마을 안전 수칙 가이드북" },
+        { name: "호신용품", emoji: "🛡️", price: 500_000, description: "경찰 특수 호신용품" },
+      ],
+      colors: ["#0ea5e9", "#0284c7", "#0369a1", "#38bdf8"],
+      speedRange: [2.4, 3.2], coinsRange: [20_000_000, 60_000_000], repRange: [60, 80],
+      arrivalMsg: "치안 유지를 위해 부임했습니다!", bubbleMsg: "👮 질서를 지키겠습니다!",
+      stealChanceMult: 0, // 경찰은 도둑질 안 함
+    },
+    soldier: {
+      label: "군인", btnEmoji: "🎖️", btnColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30",
+      emojis: ["🎖️", "💂", "💂‍♂️", "💂‍♀️", "🫡"],
+      personalities: [
+        "충성스러운 군인. 마을을 목숨 걸고 지킨다. 규율과 훈련을 중시한다.",
+        "특수부대 출신. 어떤 임무든 완수한다. 강인한 체력의 소유자.",
+        "퇴역 장교. 리더십이 뛰어나고 전략적 사고를 한다.",
+        "신병 훈련병. 열정 가득하고 선임들을 존경한다.",
+      ],
+      products: [
+        { name: "전투 식량", emoji: "🥫", price: 250_000, description: "고열량 전투 식량" },
+        { name: "훈련 교본", emoji: "📗", price: 300_000, description: "군사 훈련 교본" },
+      ],
+      colors: ["#059669", "#047857", "#065f46", "#34d399"],
+      speedRange: [2.8, 3.6], coinsRange: [15_000_000, 40_000_000], repRange: [55, 75],
+      arrivalMsg: "마을 방어를 위해 배치되었습니다!", bubbleMsg: "🫡 충성!",
+      stealChanceMult: 0, // 군인도 도둑질 안 함
+    },
+    thug: {
+      label: "건달", btnEmoji: "😎", btnColor: "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30",
+      emojis: ["😎", "🕶️", "👊", "🤙", "💀"],
+      personalities: [
+        "거리의 보스. 힘이 곧 정의라고 믿는다. 약한 놈한테서 뺏는 게 당연하다.",
+        "소매치기 달인. 눈 깜짝할 사이에 지갑을 털어간다. 양심? 그게 뭔데.",
+        "조폭 행동대장. 의리를 중시하지만 남의 것엔 관심이 많다.",
+        "떠돌이 사기꾼. 말빨로 사람을 속이고 돈을 챙긴다.",
+        "동네 양아치. 시비 거는 걸 좋아하고 남의 물건에 손이 간다.",
+      ],
+      products: [
+        { name: "가짜 명품", emoji: "👜", price: 800_000, description: "진짜처럼 보이는 가짜 명품" },
+        { name: "수상한 약", emoji: "💊", price: 1_000_000, description: "출처 불명의 수상한 약" },
+        { name: "도박 칩", emoji: "🎰", price: 500_000, description: "지하 도박장 칩" },
+      ],
+      colors: ["#ef4444", "#dc2626", "#b91c1c", "#f87171", "#991b1b"],
+      speedRange: [2.0, 3.0], coinsRange: [5_000_000, 30_000_000], repRange: [10, 30],
+      arrivalMsg: "마을에 나타났다... 조심해!", bubbleMsg: "😎 여기가 내 구역이야",
+      stealChanceMult: 3, // 도둑질 확률 3배!
+    },
+  };
+
+  const spawnAgent = useCallback((agentClass: AgentClass) => {
+    const config = CLASS_CONFIG[agentClass];
     const existingNames = agentsRef.current.map(a => a.name);
-    const availableNames = IMMIGRANT_NAMES.filter(n => !existingNames.includes(n));
-    if (availableNames.length === 0) return; // 이름 소진
+    const availableNames = SPAWN_NAMES.filter(n => !existingNames.includes(n));
+    if (availableNames.length === 0) return;
 
     const name = availableNames[Math.floor(Math.random() * availableNames.length)];
-    const emoji = IMMIGRANT_EMOJIS[Math.floor(Math.random() * IMMIGRANT_EMOJIS.length)];
-    const personality = IMMIGRANT_PERSONALITIES[Math.floor(Math.random() * IMMIGRANT_PERSONALITIES.length)];
-    const product = IMMIGRANT_PRODUCTS[Math.floor(Math.random() * IMMIGRANT_PRODUCTS.length)];
-    const color = IMMIGRANT_COLORS[Math.floor(Math.random() * IMMIGRANT_COLORS.length)];
-    const id = `agent-imm-${Date.now()}`;
+    const emoji = config.emojis[Math.floor(Math.random() * config.emojis.length)];
+    const personality = config.personalities[Math.floor(Math.random() * config.personalities.length)];
+    const product = config.products[Math.floor(Math.random() * config.products.length)];
+    const color = config.colors[Math.floor(Math.random() * config.colors.length)];
+    const id = `agent-${agentClass}-${Date.now()}`;
 
-    // 맵 가장자리에서 등장 (이민자니까!)
+    // 맵 가장자리에서 등장
     const edge = Math.floor(Math.random() * 4);
     let x: number, y: number;
-    if (edge === 0) { x = 10; y = Math.random() * MAP_HEIGHT; }       // 왼쪽
-    else if (edge === 1) { x = MAP_WIDTH - 10; y = Math.random() * MAP_HEIGHT; }  // 오른쪽
-    else if (edge === 2) { x = Math.random() * MAP_WIDTH; y = 10; }    // 위
-    else { x = Math.random() * MAP_WIDTH; y = MAP_HEIGHT - 10; }       // 아래
+    if (edge === 0) { x = 10; y = Math.random() * MAP_HEIGHT; }
+    else if (edge === 1) { x = MAP_WIDTH - 10; y = Math.random() * MAP_HEIGHT; }
+    else if (edge === 2) { x = Math.random() * MAP_WIDTH; y = 10; }
+    else { x = Math.random() * MAP_WIDTH; y = MAP_HEIGHT - 10; }
 
     const pos = randomPosition();
+    const [spdMin, spdMax] = config.speedRange;
+    const [coinMin, coinMax] = config.coinsRange;
+    const [repMin, repMax] = config.repRange;
+
     const newAgent: Agent = {
       id, name, emoji, color, personality,
       x, y,
       targetX: pos.x, targetY: pos.y,
-      speed: 1.6 + Math.random() * 1.2,
+      speed: spdMin + Math.random() * (spdMax - spdMin),
       state: "walking",
       talkingTo: null,
       destination: null,
-      homeId: null, // 집 없는 이민자!
-      coins: 10_000_000 + Math.floor(Math.random() * 40_000_000), // 1천만~5천만 가지고 옴
+      homeId: null,
+      coins: coinMin + Math.floor(Math.random() * (coinMax - coinMin)),
       product,
-      reputation: 30 + Math.floor(Math.random() * 20), // 새로온 사람은 평판 낮음
+      reputation: repMin + Math.floor(Math.random() * (repMax - repMin)),
     };
 
     agentsRef.current = [...agentsRef.current, newAgent];
     setAgents([...agentsRef.current]);
-    setConversationLog(prev => [`🌍 새 이민자 ${emoji} ${name}이(가) 마을에 도착했습니다! "${personality.slice(0, 20)}..."`, ...prev].slice(0, 50));
-    bubblesRef.current = [...bubblesRef.current, { id: `imm-${Date.now()}`, agentId: id, text: "🌍 안녕하세요!", timestamp: Date.now(), duration: 6000 }];
+    setConversationLog(prev => [`${config.btnEmoji} ${emoji} ${name} ${config.label}이(가) ${config.arrivalMsg}`, ...prev].slice(0, 50));
+    bubblesRef.current = [...bubblesRef.current, { id: `spawn-${Date.now()}`, agentId: id, text: config.bubbleMsg, timestamp: Date.now(), duration: 6000 }];
     setBubbles([...bubblesRef.current]);
   }, []);
 
@@ -769,7 +841,11 @@ export default function VillagePage() {
           if (arrivedDest && arrivedDest.startsWith("house-") && arrivedDest !== agent.homeId && !agent.isBaby) {
             const homeOwner = agentsRef.current.find(a => a.homeId === arrivedDest && a.id !== agent.id);
             const stealAllowed = getLawEffect(villageLawsRef.current, "steal_allowed");
-            if (homeOwner && Math.random() < 0.10) {
+            // 직업별 도둑질 확률: 경찰/군인 0%, 건달 30%, 시민 10%
+            const isPoliceOrSoldier = agent.id.includes("-police-") || agent.id.includes("-soldier-");
+            const isThug = agent.id.includes("-thug-");
+            const stealChance = isPoliceOrSoldier ? 0 : isThug ? 0.30 : 0.10;
+            if (homeOwner && Math.random() < stealChance) {
               const stealAmount = Math.floor(homeOwner.coins * (0.05 + Math.random() * 0.10));
               if (stealAmount > 0) {
                 if (stealAllowed === true) {
@@ -1528,10 +1604,12 @@ export default function VillagePage() {
           <span className="ml-2 px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
             👥 인구: {agents.length}명
           </span>
-          <button onClick={spawnImmigrant}
-            className="ml-2 px-3 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold hover:bg-green-500/30 transition-all">
-            ➕ 이민자
-          </button>
+          {(["civilian", "police", "soldier", "thug"] as AgentClass[]).map(cls => (
+            <button key={cls} onClick={() => spawnAgent(cls)}
+              className={`px-2 py-1 rounded text-xs font-bold transition-all border ${CLASS_CONFIG[cls].btnColor}`}>
+              {CLASS_CONFIG[cls].btnEmoji} {CLASS_CONFIG[cls].label}
+            </button>
+          ))}
         </div>
       </div>
 
