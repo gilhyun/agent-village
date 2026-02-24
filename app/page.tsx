@@ -35,6 +35,14 @@ import {
 const VIEWPORT_W = 800;
 const VIEWPORT_H = 600;
 
+// Darken a hex color
+function darkenColor(hex: string, factor: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${Math.floor(r * factor)}, ${Math.floor(g * factor)}, ${Math.floor(b * factor)})`;
+}
+
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -317,17 +325,41 @@ export default function VillagePage() {
       }
     }
 
-    // Paths between buildings
-    ctx.strokeStyle = godEffect ? "#3a2850" : "#3a4e3a";
-    ctx.lineWidth = 14;
+    // Roads (grid-style, L-shaped connections from plaza center)
+    const pathColor = godEffect ? "#3a2850" : "#5a6e5a";
+    const pathBorder = godEffect ? "#2a1840" : "#4a5e4a";
+    ctx.lineWidth = 20;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
     const plaza = VILLAGE_BUILDINGS.find(b => b.id === "plaza")!;
     const plazaCX = plaza.x + plaza.width / 2;
     const plazaCY = plaza.y + plaza.height / 2;
+
+    // Main horizontal road through plaza
+    ctx.strokeStyle = pathBorder; ctx.lineWidth = 24;
+    ctx.beginPath(); ctx.moveTo(50, plazaCY); ctx.lineTo(MAP_WIDTH - 50, plazaCY); ctx.stroke();
+    ctx.strokeStyle = pathColor; ctx.lineWidth = 20;
+    ctx.beginPath(); ctx.moveTo(50, plazaCY); ctx.lineTo(MAP_WIDTH - 50, plazaCY); ctx.stroke();
+
+    // Main vertical road through plaza
+    ctx.strokeStyle = pathBorder; ctx.lineWidth = 24;
+    ctx.beginPath(); ctx.moveTo(plazaCX, 50); ctx.lineTo(plazaCX, MAP_HEIGHT - 50); ctx.stroke();
+    ctx.strokeStyle = pathColor; ctx.lineWidth = 20;
+    ctx.beginPath(); ctx.moveTo(plazaCX, 50); ctx.lineTo(plazaCX, MAP_HEIGHT - 50); ctx.stroke();
+
+    // L-shaped branch roads to each building
     VILLAGE_BUILDINGS.forEach((b) => {
       if (b.id === "plaza") return;
       const bCX = b.x + b.width / 2;
       const bCY = b.y + b.height / 2;
-      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(bCX, bCY); ctx.stroke();
+      // Draw L-shape: go horizontal first, then vertical
+      ctx.strokeStyle = pathBorder; ctx.lineWidth = 16;
+      ctx.beginPath(); ctx.moveTo(plazaCX, bCY); ctx.lineTo(bCX, bCY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(plazaCX, bCY); ctx.stroke();
+      ctx.strokeStyle = pathColor; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(plazaCX, bCY); ctx.lineTo(bCX, bCY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(plazaCX, bCY); ctx.stroke();
     });
 
     // Decorations (flowers, bushes, rocks, animals)
@@ -337,45 +369,101 @@ export default function VillagePage() {
       ctx.fillText(d.emoji, d.x, d.y);
     });
 
-    // Buildings
+    // Buildings (pixel-art style)
     VILLAGE_BUILDINGS.forEach((b) => {
-      // Wall
-      ctx.fillStyle = godEffect ? "#2a2040" : b.wallColor;
+      const isDark = godEffect;
+      const wall = isDark ? "#2a2040" : b.wallColor;
+      const roof = isDark ? "#3a2060" : b.roofColor;
+      const wallDark = isDark ? "#1a1530" : darkenColor(b.wallColor, 0.8);
+      const roofDark = isDark ? "#2a1050" : darkenColor(b.roofColor, 0.7);
+
+      // Shadow
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.fillRect(b.x + 4, b.y + 4, b.width, b.height);
+
+      // Wall base
+      ctx.fillStyle = wall;
       ctx.fillRect(b.x, b.y, b.width, b.height);
-      ctx.strokeStyle = "rgba(0,0,0,0.3)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(b.x, b.y, b.width, b.height);
 
-      // Roof (triangle)
-      ctx.fillStyle = godEffect ? "#3a2060" : b.roofColor;
-      ctx.beginPath();
-      ctx.moveTo(b.x - 8, b.y);
-      ctx.lineTo(b.x + b.width / 2, b.y - 25);
-      ctx.lineTo(b.x + b.width + 8, b.y);
-      ctx.closePath();
-      ctx.fill();
-
-      // Door
-      ctx.fillStyle = "#92400e";
-      ctx.fillRect(b.x + b.width / 2 - 6, b.y + b.height - 18, 12, 18);
-
-      // Window
-      if (b.width >= 80) {
-        ctx.fillStyle = "#fef9c3";
-        ctx.fillRect(b.x + 10, b.y + 12, 12, 12);
-        ctx.fillRect(b.x + b.width - 22, b.y + 12, 12, 12);
-        ctx.strokeStyle = "#92400e";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(b.x + 10, b.y + 12, 12, 12);
-        ctx.strokeRect(b.x + b.width - 22, b.y + 12, 12, 12);
+      // Wall detail - horizontal lines (brick texture)
+      ctx.strokeStyle = wallDark;
+      ctx.lineWidth = 0.5;
+      for (let wy = b.y + 8; wy < b.y + b.height; wy += 8) {
+        ctx.beginPath(); ctx.moveTo(b.x, wy); ctx.lineTo(b.x + b.width, wy); ctx.stroke();
       }
 
-      // Emoji + name
-      ctx.font = "16px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(b.emoji, b.x + b.width / 2, b.y - 35);
-      ctx.font = "bold 9px sans-serif";
+      // Wall border
+      ctx.strokeStyle = roofDark;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+      // Roof
+      ctx.fillStyle = roof;
+      ctx.beginPath();
+      ctx.moveTo(b.x - 6, b.y);
+      ctx.lineTo(b.x + b.width / 2, b.y - 20);
+      ctx.lineTo(b.x + b.width + 6, b.y);
+      ctx.closePath();
+      ctx.fill();
+      // Roof border
+      ctx.strokeStyle = roofDark;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.x - 6, b.y);
+      ctx.lineTo(b.x + b.width / 2, b.y - 20);
+      ctx.lineTo(b.x + b.width + 6, b.y);
+      ctx.closePath();
+      ctx.stroke();
+      // Roof stripe
+      ctx.strokeStyle = roofDark;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(b.x - 3, b.y - 2);
+      ctx.lineTo(b.x + b.width / 2, b.y - 17);
+      ctx.lineTo(b.x + b.width + 3, b.y - 2);
+      ctx.stroke();
+
+      // Door
+      ctx.fillStyle = "#6b3a1f";
+      const doorW = 10, doorH = 16;
+      ctx.fillRect(b.x + b.width / 2 - doorW / 2, b.y + b.height - doorH, doorW, doorH);
+      ctx.strokeStyle = "#4a2810";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x + b.width / 2 - doorW / 2, b.y + b.height - doorH, doorW, doorH);
+      // Door knob
+      ctx.fillStyle = "#fbbf24";
+      ctx.beginPath();
+      ctx.arc(b.x + b.width / 2 + 2, b.y + b.height - doorH / 2, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Windows
+      if (b.width >= 80) {
+        const winColor = isDark ? "#4a3870" : "#bae6fd";
+        const winFrame = isDark ? "#2a1850" : "#7c3aed";
+        [b.x + 14, b.x + b.width - 26].forEach((wx) => {
+          // Window pane
+          ctx.fillStyle = winColor;
+          ctx.fillRect(wx, b.y + 10, 12, 12);
+          // Cross frame
+          ctx.strokeStyle = winFrame;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(wx + 6, b.y + 10); ctx.lineTo(wx + 6, b.y + 22); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(wx, b.y + 16); ctx.lineTo(wx + 12, b.y + 16); ctx.stroke();
+          // Window border
+          ctx.strokeStyle = roofDark;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(wx, b.y + 10, 12, 12);
+        });
+      }
+
+      // Name label
+      ctx.font = "bold 10px sans-serif";
       ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 3;
       ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height + 14);
+      ctx.shadowBlur = 0;
     });
 
     // World objects
