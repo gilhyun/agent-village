@@ -28,6 +28,9 @@ import {
   growUpBaby,
   GROW_TIME_MS,
   isFamily,
+  OUTFITS,
+  HOME_UPGRADES,
+  AgentOutfit,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -54,6 +57,14 @@ function formatCoins(coins: number): string {
   if (coins >= 100_000_000) return `${(coins / 100_000_000).toFixed(1)}억`;
   if (coins >= 10_000) return `${(coins / 10_000).toFixed(0)}만`;
   return `${coins}`;
+}
+
+function shadeColor(hex: string, amt: number): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + amt));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+  const b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
 // 시장 안에 있는지 체크
@@ -449,6 +460,40 @@ export default function VillagePage() {
         return agent;
       });
 
+      // 에이전트 자동 쇼핑 (매 300틱 ≈ 5초마다 체크)
+      if (tickRef.current % 300 === 0) {
+        agentsRef.current = agentsRef.current.map(agent => {
+          if (agent.isBaby || agent.state === "talking") return agent;
+
+          // 20% 확률로 옷 구매 시도
+          if (Math.random() < 0.2 && agent.coins > 1_000_000) {
+            const affordableOutfits = OUTFITS.filter(o => o.price <= agent.coins * 0.3); // 재산의 30% 이하만
+            if (affordableOutfits.length > 0) {
+              const chosen = affordableOutfits[Math.floor(Math.random() * affordableOutfits.length)];
+              // 이미 같은 옷이면 스킵
+              if (agent.outfit?.name !== chosen.name) {
+                setConversationLog(prev => [`👔 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name}을(를) 구매! (-${formatCoins(chosen.price)})`, ...prev].slice(0, 50));
+                bubblesRef.current = [...bubblesRef.current, { id: `shop-${now}-${agent.id}`, agentId: agent.id, text: `${chosen.emoji} 새 옷!`, timestamp: now, duration: 4000 }];
+                return { ...agent, coins: agent.coins - chosen.price, outfit: { name: chosen.name, emoji: chosen.emoji, shirtColor: chosen.shirtColor, pantsColor: chosen.pantsColor, hairColor: chosen.hairColor, accessory: chosen.accessory } };
+              }
+            }
+          }
+
+          // 10% 확률로 집 업그레이드 시도
+          if (Math.random() < 0.1 && agent.homeId) {
+            const currentLevel = agent.homeLevel || 0;
+            const nextUpgrade = HOME_UPGRADES.find(u => u.level === currentLevel + 1);
+            if (nextUpgrade && agent.coins >= nextUpgrade.price) {
+              setConversationLog(prev => [`🏠 ${agent.emoji} ${agent.name}이(가) 집을 ${nextUpgrade.name}으로 업그레이드! (-${formatCoins(nextUpgrade.price)})`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `home-${now}-${agent.id}`, agentId: agent.id, text: `🏠 ${nextUpgrade.name}!`, timestamp: now, duration: 4000 }];
+              return { ...agent, coins: agent.coins - nextUpgrade.price, homeLevel: nextUpgrade.level };
+            }
+          }
+
+          return agent;
+        });
+      }
+
       bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
       setBubbles([...bubblesRef.current]);
       setAgents([...agentsRef.current]);
@@ -548,6 +593,20 @@ export default function VillagePage() {
       if (b.y + b.height + 20 < cameraY || b.y - 30 > cameraY + VIEWPORT_H) return;
 
       drawBuildingInterior(ctx, b, godEffect);
+
+      // 집 레벨 배지 표시
+      if (b.id.startsWith("house-")) {
+        const owner = agents.find(a => a.homeId === b.id);
+        if (owner && owner.homeLevel && owner.homeLevel > 0) {
+          const levelLabels = ["", "⭐", "⭐⭐", "🌟"];
+          const label = levelLabels[owner.homeLevel] || "";
+          if (label) {
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(label, b.x + b.width / 2, b.y - 35);
+          }
+        }
+      }
     });
 
     // World objects
@@ -564,7 +623,22 @@ export default function VillagePage() {
 
     // Agents
     agents.forEach((agent) => {
-      const palette = CHARACTER_PALETTES[agent.id] || CHARACTER_PALETTES["agent-1"];
+      let palette = [...(CHARACTER_PALETTES[agent.id] || CHARACTER_PALETTES["agent-1"])];
+      // 옷 적용 — palette 색상 오버라이드
+      if (agent.outfit) {
+        if (agent.outfit.shirtColor) {
+          palette[2] = agent.outfit.shirtColor; // main color (셔츠)
+          palette[1] = shadeColor(agent.outfit.shirtColor, -30); // dark
+          palette[3] = shadeColor(agent.outfit.shirtColor, 30); // light
+        }
+        if (agent.outfit.pantsColor) {
+          palette[6] = agent.outfit.pantsColor; // darkest (바지)
+          palette[7] = shadeColor(agent.outfit.pantsColor, 15); // dark shade
+        }
+        if (agent.outfit.hairColor) {
+          palette[4] = agent.outfit.hairColor; // hair
+        }
+      }
       const frame = getFrame(agent.state, tick);
       const flip = agent.targetX < agent.x;
 
@@ -574,6 +648,36 @@ export default function VillagePage() {
       ctx.fill();
 
       drawSprite(ctx, frame, palette, agent.x, agent.y, PIXEL_SIZE, flip);
+
+      // 액세서리 렌더링
+      if (agent.outfit?.accessory) {
+        const headX = agent.x;
+        const headY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2;
+        ctx.textAlign = "center";
+        switch (agent.outfit.accessory) {
+          case "crown":
+            ctx.font = "10px sans-serif";
+            ctx.fillText("👑", headX, headY - 2);
+            break;
+          case "hat":
+            ctx.font = "9px sans-serif";
+            ctx.fillText("🎩", headX, headY - 1);
+            break;
+          case "chef_hat":
+            ctx.font = "9px sans-serif";
+            ctx.fillText("👨‍🍳", headX, headY - 1);
+            break;
+          case "glasses":
+            ctx.font = "7px sans-serif";
+            ctx.fillText("🤓", headX, headY + 8);
+            break;
+          case "tie":
+            ctx.fillStyle = "#c0392b";
+            ctx.fillRect(headX - 1, agent.y, 2, 8);
+            ctx.fillRect(headX - 2, agent.y, 4, 2);
+            break;
+        }
+      }
 
       if (agent.state === "talking") {
         ctx.strokeStyle = "rgba(251, 191, 36, 0.6)"; ctx.lineWidth = 2;

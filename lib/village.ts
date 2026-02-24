@@ -15,13 +15,17 @@ export interface Agent {
   talkingTo: string | null;
   destination: string | null; // building id or null
   homeId: string | null; // agent's home building id
-  title?: string | null; // 명찰/칭호 (예: "마을 회장", "요리왕")
-  isBaby?: boolean; // 아기 여부
-  birthTime?: number; // 태어난 시간 (Date.now())
-  parentIds?: string[]; // 부모 ID들
+  title?: string | null; // 명찰/칭호
+  isBaby?: boolean;
+  birthTime?: number;
+  parentIds?: string[];
   // 💰 금융 시스템
-  coins: number; // 보유 코인
-  product?: AgentProduct | null; // 판매 중인 상품
+  coins: number;
+  product?: AgentProduct | null;
+  // 👔 옷/외형
+  outfit?: AgentOutfit | null;
+  // 🏠 집 레벨
+  homeLevel?: number; // 0=기본, 1=중형, 2=대형, 3=맨션
 }
 
 // 에이전트 상품
@@ -31,6 +35,35 @@ export interface AgentProduct {
   price: number;
   description: string;
 }
+
+// 옷 시스템
+export interface AgentOutfit {
+  name: string;
+  emoji: string;
+  hairColor?: string;
+  shirtColor?: string;
+  pantsColor?: string;
+  accessory?: string; // 모자, 안경 등
+}
+
+// 옷 상점 목록
+export const OUTFITS: (AgentOutfit & { price: number })[] = [
+  { name: "캐주얼룩", emoji: "👕", price: 500_000, shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
+  { name: "정장", emoji: "🤵", price: 2_000_000, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "tie" },
+  { name: "운동복", emoji: "🏃", price: 300_000, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
+  { name: "파티복", emoji: "🎉", price: 3_000_000, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
+  { name: "왕관세트", emoji: "👑", price: 10_000_000, shirtColor: "#f1c40f", pantsColor: "#d4ac0d", accessory: "crown" },
+  { name: "과학자복", emoji: "🥼", price: 1_500_000, shirtColor: "#ecf0f1", pantsColor: "#bdc3c7", accessory: "glasses" },
+  { name: "요리사복", emoji: "👨‍🍳", price: 1_000_000, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
+  { name: "탐험가복", emoji: "🧭", price: 1_500_000, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
+];
+
+// 집 업그레이드 비용
+export const HOME_UPGRADES = [
+  { level: 1, name: "중형 주택", price: 5_000_000, sizeBonus: 30, extraFurniture: 2 },
+  { level: 2, name: "대형 주택", price: 15_000_000, sizeBonus: 60, extraFurniture: 4 },
+  { level: 3, name: "맨션", price: 50_000_000, sizeBonus: 100, extraFurniture: 6 },
+];
 
 export interface Relationship {
   agentA: string;
