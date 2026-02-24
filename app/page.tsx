@@ -25,6 +25,10 @@ export default function VillagePage() {
   const [conversationLog, setConversationLog] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(true);
   const [agentCount, setAgentCount] = useState(5);
+  const [godMessage, setGodMessage] = useState("");
+  const [isSendingDecree, setIsSendingDecree] = useState(false);
+  const [lastDecree, setLastDecree] = useState<string | null>(null);
+  const [godEffect, setGodEffect] = useState(false); // sky + lightning effect
 
   const agentsRef = useRef<Agent[]>([]);
   const relationshipsRef = useRef<Map<string, Relationship>>(new Map());
@@ -40,6 +44,82 @@ export default function VillagePage() {
     agentsRef.current = initialized;
   }, [agentCount]);
 
+  // Send God's decree
+  const sendDecree = useCallback(async () => {
+    if (!godMessage.trim() || isSendingDecree) return;
+    setIsSendingDecree(true);
+    setLastDecree(godMessage);
+
+    // Add god's message to log
+    setConversationLog((prev) => [
+      `⚡ 신의 목소리: "${godMessage}"`,
+      ...prev,
+    ].slice(0, 50));
+
+    // Trigger sky + lightning effect
+    setGodEffect(true);
+    setTimeout(() => setGodEffect(false), 4000);
+
+    // Show god's message as a special bubble on all agents
+    agentsRef.current.forEach((agent) => {
+      const bubble: ChatBubble = {
+        id: `god-${Date.now()}-${agent.id}`,
+        agentId: agent.id,
+        text: "⚡ !?",
+        timestamp: Date.now(),
+        duration: 3000,
+      };
+      bubblesRef.current = [...bubblesRef.current, bubble];
+    });
+    setBubbles([...bubblesRef.current]);
+
+    try {
+      const res = await fetch("/api/god", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: godMessage,
+          agents: agentsRef.current.map((a) => ({
+            name: a.name,
+            emoji: a.emoji,
+            personality: a.personality,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.reactions) {
+        data.reactions.forEach((r: { agentName: string; emoji: string; reaction: string }, i: number) => {
+          setTimeout(() => {
+            const agent = agentsRef.current.find((a) => a.name === r.agentName);
+            if (agent) {
+              const bubble: ChatBubble = {
+                id: `god-react-${Date.now()}-${i}`,
+                agentId: agent.id,
+                text: r.reaction,
+                timestamp: Date.now(),
+                duration: BUBBLE_DURATION,
+              };
+              bubblesRef.current = [...bubblesRef.current, bubble];
+              setBubbles([...bubblesRef.current]);
+
+              setConversationLog((prev) => [
+                `${r.emoji} ${r.agentName}: ${r.reaction}`,
+                ...prev,
+              ].slice(0, 50));
+            }
+          }, i * 1500);
+        });
+      }
+    } catch (e) {
+      console.error("God decree failed:", e);
+    }
+
+    setGodMessage("");
+    setIsSendingDecree(false);
+  }, [godMessage, isSendingDecree]);
+
   // Request conversation from AI
   const requestConversation = useCallback(async (agentA: Agent, agentB: Agent, rel: Relationship) => {
     const key = relationshipKey(agentA.id, agentB.id);
@@ -53,10 +133,10 @@ export default function VillagePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agentA: { name: agentA.name, emoji: agentA.emoji, personality: agentA.personality },
-          agentB: { name: agentB.name, emoji: agentB.emoji, personality: agentB.personality },
+          agentA: { id: agentA.id, name: agentA.name, emoji: agentA.emoji, personality: agentA.personality },
+          agentB: { id: agentB.id, name: agentB.name, emoji: agentB.emoji, personality: agentB.personality },
           conversationType: convType,
-          previousTopics: rel.lastTopics,
+          meetCount: rel.meetCount,
         }),
       });
 
@@ -199,12 +279,49 @@ export default function VillagePage() {
     // Clear
     ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
-    // Draw grass background
-    ctx.fillStyle = "#1a2e1a";
-    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    // Draw grass background (changes color during god effect)
+    if (godEffect) {
+      // Dark purple sky effect
+      ctx.fillStyle = "#1a1028";
+      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+      // Lightning bolts
+      const drawLightning = (startX: number, startY: number) => {
+        ctx.strokeStyle = `rgba(255, 255, 100, ${0.5 + Math.random() * 0.5})`;
+        ctx.lineWidth = 2 + Math.random() * 2;
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        let x = startX;
+        let y = startY;
+        for (let i = 0; i < 8; i++) {
+          x += (Math.random() - 0.5) * 40;
+          y += 15 + Math.random() * 25;
+          ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      };
+
+      // Random lightning positions
+      if (Math.random() > 0.3) {
+        drawLightning(100 + Math.random() * 600, 0);
+      }
+      if (Math.random() > 0.5) {
+        drawLightning(200 + Math.random() * 400, 0);
+      }
+
+      // Ambient flash overlay
+      ctx.fillStyle = `rgba(255, 255, 200, ${Math.random() * 0.08})`;
+      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    } else {
+      ctx.fillStyle = "#1a2e1a";
+      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    }
 
     // Draw grid dots
-    ctx.fillStyle = "#2a3e2a";
+    ctx.fillStyle = godEffect ? "#2a2040" : "#2a3e2a";
     for (let x = 0; x < MAP_WIDTH; x += 30) {
       for (let y = 0; y < MAP_HEIGHT; y += 30) {
         ctx.beginPath();
@@ -214,7 +331,7 @@ export default function VillagePage() {
     }
 
     // Draw paths
-    ctx.strokeStyle = "#3a4e3a";
+    ctx.strokeStyle = godEffect ? "#3a2850" : "#3a4e3a";
     ctx.lineWidth = 12;
     ctx.beginPath();
     ctx.moveTo(0, MAP_HEIGHT / 2);
@@ -231,11 +348,11 @@ export default function VillagePage() {
       [400, 150], [200, 300], [600, 400], [350, 450],
     ];
     trees.forEach(([tx, ty]) => {
-      ctx.fillStyle = "#2d5a2d";
+      ctx.fillStyle = godEffect ? "#3d2a5d" : "#2d5a2d";
       ctx.beginPath();
       ctx.arc(tx, ty, 15, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#1a3a1a";
+      ctx.fillStyle = godEffect ? "#2a1a4a" : "#1a3a1a";
       ctx.beginPath();
       ctx.arc(tx, ty, 10, 0, Math.PI * 2);
       ctx.fill();
@@ -337,7 +454,7 @@ export default function VillagePage() {
         }
       }
     });
-  }, [agents, bubbles]);
+  }, [agents, bubbles, godEffect]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center p-4 md:p-8">
@@ -393,7 +510,11 @@ export default function VillagePage() {
       <div className="flex flex-col lg:flex-row gap-4 w-full max-w-[1200px]">
         {/* Canvas */}
         <div className="flex-1 flex justify-center">
-          <div className="relative rounded-xl overflow-hidden border border-zinc-800 shadow-2xl">
+          <div className={`relative rounded-xl overflow-hidden border shadow-2xl transition-all duration-500 ${
+            godEffect 
+              ? "border-amber-500/60 shadow-amber-500/30" 
+              : "border-zinc-800"
+          }`}>
             <canvas
               ref={canvasRef}
               width={MAP_WIDTH}
@@ -446,7 +567,14 @@ export default function VillagePage() {
             </h3>
             <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
               {conversationLog.map((log, i) => (
-                <div key={i} className="text-xs text-zinc-400 border-l-2 border-zinc-700 pl-2">
+                <div
+                  key={i}
+                  className={`text-xs border-l-2 pl-2 ${
+                    log.startsWith("⚡")
+                      ? "text-amber-400 border-amber-500 font-bold"
+                      : "text-zinc-400 border-zinc-700"
+                  }`}
+                >
                   {log}
                 </div>
               ))}
@@ -455,6 +583,36 @@ export default function VillagePage() {
                   에이전트들이 만나면 대화가 시작됩니다...
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* God Mode Input */}
+          <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900 border border-amber-700/30 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
+              ⚡ 신의 목소리
+            </h3>
+            {lastDecree && (
+              <div className="text-xs text-amber-300/60 mb-2 italic truncate">
+                마지막 명령: &quot;{lastDecree}&quot;
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={godMessage}
+                onChange={(e) => setGodMessage(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendDecree()}
+                placeholder="마을에 전할 말씀을..."
+                className="flex-1 bg-zinc-800/80 border border-amber-700/30 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20"
+                disabled={isSendingDecree}
+              />
+              <button
+                onClick={sendDecree}
+                disabled={isSendingDecree || !godMessage.trim()}
+                className="px-4 py-2 bg-amber-600/80 hover:bg-amber-500/80 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-bold rounded-lg transition-all"
+              >
+                {isSendingDecree ? "⏳" : "⚡"}
+              </button>
             </div>
           </div>
         </div>
