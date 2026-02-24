@@ -690,10 +690,10 @@ export default function VillagePage() {
           </div>
         </div>
 
-        <div className="w-full lg:w-[320px] flex flex-col gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div className="w-full lg:w-[320px] flex flex-col gap-4 lg:max-h-[calc(100vh-120px)] lg:overflow-hidden">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shrink-0">
             <h3 className="text-sm font-bold text-zinc-300 mb-3">🤝 관계도</h3>
-            <div className="space-y-2 max-h-[150px] overflow-y-auto">
+            <div className="space-y-2 max-h-[120px] overflow-y-auto">
               {Array.from(relationships.values()).map((rel) => {
                 const a = agents.find((ag) => ag.id === rel.agentA);
                 const b = agents.find((ag) => ag.id === rel.agentB);
@@ -706,9 +706,9 @@ export default function VillagePage() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex-1">
-            <h3 className="text-sm font-bold text-zinc-300 mb-3">💬 대화 기록</h3>
-            <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex-1 min-h-0 flex flex-col">
+            <h3 className="text-sm font-bold text-zinc-300 mb-3 shrink-0">💬 대화 기록</h3>
+            <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0">
               {conversationLog.map((log, i) => (
                 <div key={i} className={`text-xs border-l-2 pl-2 ${log.startsWith("⚡") ? "text-amber-400 border-amber-500 font-bold" : "text-zinc-400 border-zinc-700"}`}>{log}</div>
               ))}
@@ -716,7 +716,7 @@ export default function VillagePage() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900 border border-amber-700/30 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900 border border-amber-700/30 rounded-xl p-4 shrink-0">
             <h3 className="text-sm font-bold text-amber-400 mb-3">⚡ 신의 목소리</h3>
             <div className="mb-3">
               <button onClick={() => setShowObjectPicker(!showObjectPicker)} className="w-full px-3 py-2 text-xs font-bold rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/40 transition-all">
