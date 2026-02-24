@@ -13,9 +13,6 @@ import {
   INTERACTION_DISTANCE,
   BUBBLE_DURATION,
   VILLAGE_BUILDINGS,
-  Building,
-  Decoration,
-  generateDecorations,
   initializeAgents,
   newTarget,
   distance,
@@ -30,18 +27,17 @@ import {
   drawSprite,
   getFrame,
 } from "@/lib/sprites";
+import {
+  drawGrassTile, drawDirtPathTile, drawWaterTile, drawStoneTile,
+  drawTreeTile, drawFlowerTile, drawBushTile, drawRockTile,
+  drawHouse,
+} from "@/lib/tiles";
+import { TILEMAP, TILE_SIZE, TILE_SCALE, TILES_X, TILES_Y, T, DECORATIONS } from "@/lib/tilemap";
 
 // Viewport size (what you see on screen)
 const VIEWPORT_W = 800;
 const VIEWPORT_H = 600;
-
-// Darken a hex color
-function darkenColor(hex: string, factor: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.floor(r * factor)}, ${Math.floor(g * factor)}, ${Math.floor(b * factor)})`;
-}
+const TS = TILE_SIZE * TILE_SCALE; // rendered tile size in px
 
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,12 +69,9 @@ export default function VillagePage() {
   const pendingChatsRef = useRef<Set<string>>(new Set());
   const animFrameRef = useRef<number>(0);
   const tickRef = useRef<number>(0);
-  const decorationsRef = useRef<Decoration[]>([]);
 
-  // Generate decorations once
-  useEffect(() => {
-    decorationsRef.current = generateDecorations();
-  }, []);
+  // Pre-render tilemap to offscreen canvas (cache)
+  const tilemapCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Initialize agents
   useEffect(() => {
@@ -296,9 +289,43 @@ export default function VillagePage() {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
 
-    // Background
-    ctx.fillStyle = godEffect ? "#1a1028" : "#1a2e1a";
-    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    // Background — tilemap ground layer
+    // Cache static tiles to offscreen canvas (only rebuild when god effect changes)
+    if (!tilemapCanvasRef.current) {
+      tilemapCanvasRef.current = document.createElement("canvas");
+      tilemapCanvasRef.current.width = MAP_WIDTH;
+      tilemapCanvasRef.current.height = MAP_HEIGHT;
+    }
+
+    // Only render visible tile range for performance
+    const startTX = Math.max(0, Math.floor(cameraX / TS) - 1);
+    const startTY = Math.max(0, Math.floor(cameraY / TS) - 1);
+    const endTX = Math.min(TILES_X, Math.ceil((cameraX + VIEWPORT_W) / TS) + 1);
+    const endTY = Math.min(TILES_Y, Math.ceil((cameraY + VIEWPORT_H) / TS) + 1);
+    const tick = tickRef.current;
+
+    // Draw ground tiles
+    for (let ty = startTY; ty < endTY; ty++) {
+      for (let tx = startTX; tx < endTX; tx++) {
+        const px = tx * TS;
+        const py = ty * TS;
+        const tile = TILEMAP[ty][tx];
+        const variant = (tx * 7 + ty * 13) % 8; // deterministic variation
+        if (godEffect) {
+          // Purple tint for god mode
+          ctx.fillStyle = "#1a1028";
+          ctx.fillRect(px, py, TS, TS);
+        } else if (tile === T.GRASS) {
+          drawGrassTile(ctx, px, py, TILE_SCALE, variant);
+        } else if (tile === T.DIRT) {
+          drawDirtPathTile(ctx, px, py, TILE_SCALE, variant);
+        } else if (tile === T.WATER) {
+          drawWaterTile(ctx, px, py, TILE_SCALE, tick);
+        } else if (tile === T.STONE) {
+          drawStoneTile(ctx, px, py, TILE_SCALE, variant);
+        }
+      }
+    }
 
     // God lightning
     if (godEffect) {
@@ -317,144 +344,31 @@ export default function VillagePage() {
       ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
     }
 
-    // Grid dots
-    ctx.fillStyle = godEffect ? "#2a2040" : "#2a3e2a";
-    for (let x = 0; x < MAP_WIDTH; x += 40) {
-      for (let y = 0; y < MAP_HEIGHT; y += 40) {
-        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
-      }
-    }
+    // Decorations (trees, flowers, bushes, rocks)
+    DECORATIONS.forEach((d) => {
+      const dpx = d.tx * TS;
+      const dpy = d.ty * TS;
+      // Skip if outside viewport
+      if (dpx + TS * 2 < cameraX || dpx > cameraX + VIEWPORT_W) return;
+      if (dpy + TS * 2 < cameraY || dpy > cameraY + VIEWPORT_H) return;
+      if (godEffect) return; // hide decorations during god effect
 
-    // Roads (grid-style, L-shaped connections from plaza center)
-    const pathColor = godEffect ? "#3a2850" : "#5a6e5a";
-    const pathBorder = godEffect ? "#2a1840" : "#4a5e4a";
-    ctx.lineWidth = 20;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    const plaza = VILLAGE_BUILDINGS.find(b => b.id === "plaza")!;
-    const plazaCX = plaza.x + plaza.width / 2;
-    const plazaCY = plaza.y + plaza.height / 2;
-
-    // Main horizontal road through plaza
-    ctx.strokeStyle = pathBorder; ctx.lineWidth = 24;
-    ctx.beginPath(); ctx.moveTo(50, plazaCY); ctx.lineTo(MAP_WIDTH - 50, plazaCY); ctx.stroke();
-    ctx.strokeStyle = pathColor; ctx.lineWidth = 20;
-    ctx.beginPath(); ctx.moveTo(50, plazaCY); ctx.lineTo(MAP_WIDTH - 50, plazaCY); ctx.stroke();
-
-    // Main vertical road through plaza
-    ctx.strokeStyle = pathBorder; ctx.lineWidth = 24;
-    ctx.beginPath(); ctx.moveTo(plazaCX, 50); ctx.lineTo(plazaCX, MAP_HEIGHT - 50); ctx.stroke();
-    ctx.strokeStyle = pathColor; ctx.lineWidth = 20;
-    ctx.beginPath(); ctx.moveTo(plazaCX, 50); ctx.lineTo(plazaCX, MAP_HEIGHT - 50); ctx.stroke();
-
-    // L-shaped branch roads to each building
-    VILLAGE_BUILDINGS.forEach((b) => {
-      if (b.id === "plaza") return;
-      const bCX = b.x + b.width / 2;
-      const bCY = b.y + b.height / 2;
-      // Draw L-shape: go horizontal first, then vertical
-      ctx.strokeStyle = pathBorder; ctx.lineWidth = 16;
-      ctx.beginPath(); ctx.moveTo(plazaCX, bCY); ctx.lineTo(bCX, bCY); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(plazaCX, bCY); ctx.stroke();
-      ctx.strokeStyle = pathColor; ctx.lineWidth = 12;
-      ctx.beginPath(); ctx.moveTo(plazaCX, bCY); ctx.lineTo(bCX, bCY); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(plazaCX, bCY); ctx.stroke();
+      if (d.type === "tree") drawTreeTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
+      else if (d.type === "flower") drawFlowerTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
+      else if (d.type === "bush") drawBushTile(ctx, dpx, dpy, TILE_SCALE);
+      else if (d.type === "rock") drawRockTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
     });
 
-    // Decorations (flowers, bushes, rocks, animals)
-    decorationsRef.current.forEach((d) => {
-      ctx.font = d.type === "cow" ? "24px serif" : d.type === "bush" ? "16px serif" : d.type === "rock" ? "14px serif" : "10px serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(d.emoji, d.x, d.y);
-    });
-
-    // Buildings (pixel-art style)
+    // Buildings
     VILLAGE_BUILDINGS.forEach((b) => {
-      const isDark = godEffect;
-      const wall = isDark ? "#2a2040" : b.wallColor;
-      const roof = isDark ? "#3a2060" : b.roofColor;
-      const wallDark = isDark ? "#1a1530" : darkenColor(b.wallColor, 0.8);
-      const roofDark = isDark ? "#2a1050" : darkenColor(b.roofColor, 0.7);
+      // Skip if outside viewport
+      if (b.x + b.width + 20 < cameraX || b.x - 20 > cameraX + VIEWPORT_W) return;
+      if (b.y + b.height + 20 < cameraY || b.y - 30 > cameraY + VIEWPORT_H) return;
 
-      // Shadow
-      ctx.fillStyle = "rgba(0,0,0,0.2)";
-      ctx.fillRect(b.x + 4, b.y + 4, b.width, b.height);
+      const roof = godEffect ? "#3a2060" : b.roofColor;
+      const wall = godEffect ? "#2a2040" : b.wallColor;
 
-      // Wall base
-      ctx.fillStyle = wall;
-      ctx.fillRect(b.x, b.y, b.width, b.height);
-
-      // Wall detail - horizontal lines (brick texture)
-      ctx.strokeStyle = wallDark;
-      ctx.lineWidth = 0.5;
-      for (let wy = b.y + 8; wy < b.y + b.height; wy += 8) {
-        ctx.beginPath(); ctx.moveTo(b.x, wy); ctx.lineTo(b.x + b.width, wy); ctx.stroke();
-      }
-
-      // Wall border
-      ctx.strokeStyle = roofDark;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(b.x, b.y, b.width, b.height);
-
-      // Roof
-      ctx.fillStyle = roof;
-      ctx.beginPath();
-      ctx.moveTo(b.x - 6, b.y);
-      ctx.lineTo(b.x + b.width / 2, b.y - 20);
-      ctx.lineTo(b.x + b.width + 6, b.y);
-      ctx.closePath();
-      ctx.fill();
-      // Roof border
-      ctx.strokeStyle = roofDark;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(b.x - 6, b.y);
-      ctx.lineTo(b.x + b.width / 2, b.y - 20);
-      ctx.lineTo(b.x + b.width + 6, b.y);
-      ctx.closePath();
-      ctx.stroke();
-      // Roof stripe
-      ctx.strokeStyle = roofDark;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(b.x - 3, b.y - 2);
-      ctx.lineTo(b.x + b.width / 2, b.y - 17);
-      ctx.lineTo(b.x + b.width + 3, b.y - 2);
-      ctx.stroke();
-
-      // Door
-      ctx.fillStyle = "#6b3a1f";
-      const doorW = 10, doorH = 16;
-      ctx.fillRect(b.x + b.width / 2 - doorW / 2, b.y + b.height - doorH, doorW, doorH);
-      ctx.strokeStyle = "#4a2810";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(b.x + b.width / 2 - doorW / 2, b.y + b.height - doorH, doorW, doorH);
-      // Door knob
-      ctx.fillStyle = "#fbbf24";
-      ctx.beginPath();
-      ctx.arc(b.x + b.width / 2 + 2, b.y + b.height - doorH / 2, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Windows
-      if (b.width >= 80) {
-        const winColor = isDark ? "#4a3870" : "#bae6fd";
-        const winFrame = isDark ? "#2a1850" : "#7c3aed";
-        [b.x + 14, b.x + b.width - 26].forEach((wx) => {
-          // Window pane
-          ctx.fillStyle = winColor;
-          ctx.fillRect(wx, b.y + 10, 12, 12);
-          // Cross frame
-          ctx.strokeStyle = winFrame;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(wx + 6, b.y + 10); ctx.lineTo(wx + 6, b.y + 22); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(wx, b.y + 16); ctx.lineTo(wx + 12, b.y + 16); ctx.stroke();
-          // Window border
-          ctx.strokeStyle = roofDark;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(wx, b.y + 10, 12, 12);
-        });
-      }
+      drawHouse(ctx, b.x, b.y, TILE_SCALE, roof, wall, TS);
 
       // Name label
       ctx.font = "bold 10px sans-serif";
@@ -479,7 +393,6 @@ export default function VillagePage() {
     });
 
     // Agents
-    const tick = tickRef.current;
     agents.forEach((agent) => {
       const palette = CHARACTER_PALETTES[agent.id] || CHARACTER_PALETTES["agent-1"];
       const frame = getFrame(agent.state, tick);
@@ -544,10 +457,27 @@ export default function VillagePage() {
 
     // Minimap (bottom-left corner)
     const mmW = 160, mmH = 120, mmX = 10, mmY = VIEWPORT_H - mmH - 10;
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillStyle = "rgba(26,46,26,0.85)";
     ctx.fillRect(mmX, mmY, mmW, mmH);
     ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
     ctx.strokeRect(mmX, mmY, mmW, mmH);
+
+    // Tilemap overview on minimap (simplified)
+    for (let ty = 0; ty < TILES_Y; ty += 3) {
+      for (let tx = 0; tx < TILES_X; tx += 3) {
+        const t = TILEMAP[ty][tx];
+        if (t === T.DIRT) ctx.fillStyle = "#c4a265";
+        else if (t === T.WATER) ctx.fillStyle = "#3b82c4";
+        else if (t === T.STONE) ctx.fillStyle = "#9ca3af";
+        else continue;
+        ctx.fillRect(
+          mmX + (tx / TILES_X) * mmW,
+          mmY + (ty / TILES_Y) * mmH,
+          Math.max(2, (3 / TILES_X) * mmW),
+          Math.max(2, (3 / TILES_Y) * mmH),
+        );
+      }
+    }
 
     // Buildings on minimap
     VILLAGE_BUILDINGS.forEach((b) => {
