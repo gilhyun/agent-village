@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       buildingName: string;
     };
 
-    if (agents.length < 3) {
+    if (agents.length < 2) {
       return NextResponse.json({ messages: [], topic: "" });
     }
 

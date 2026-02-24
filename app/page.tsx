@@ -541,6 +541,39 @@ export default function VillagePage() {
 
         const totalDuration = data.messages.length * 2000 + BUBBLE_DURATION;
         setTimeout(() => {
+          // 1:1 대화에서 법안 발의 (건물 안 + 친한 사이 + 20% 확률)
+          const buildingA = agentA.destination;
+          if (buildingA && rel.meetCount >= 1 && Math.random() < 0.2) {
+            const PROPOSED_LAWS_MINI = [
+              { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
+              { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
+              { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
+              { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
+              { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
+            ];
+            const proposedLaw = PROPOSED_LAWS_MINI[Math.floor(Math.random() * PROPOSED_LAWS_MINI.length)];
+            setConversationLog(prev => [`📋 ${agentA.emoji}${agentA.name}와 ${agentB.emoji}${agentB.name}이 "${proposedLaw.emoji} ${proposedLaw.name}" 법안을 제안!`, ...prev].slice(0, 50));
+
+            // 이장 승인 체크
+            const mayor = agentsRef.current.find(a => a.isMayor);
+            setTimeout(() => {
+              if (mayor) {
+                const approved = Math.random() < 0.6;
+                if (approved) {
+                  setConversationLog(prev => [`🏛️ ${mayor.emoji} ${mayor.name} 이장 승인!`, ...prev].slice(0, 50));
+                  bubblesRef.current = [...bubblesRef.current, { id: `law1on1-${Date.now()}`, agentId: mayor.id, text: "🏛️ 승인!", timestamp: Date.now(), duration: 4000 }];
+                  setBubbles([...bubblesRef.current]);
+                  applyLaw(proposedLaw, agentA.name, new Set([agentA.id, agentB.id]), [agentA, agentB]);
+                } else {
+                  setConversationLog(prev => [`🏛️ ${mayor.emoji} ${mayor.name} 이장이 거부`, ...prev].slice(0, 50));
+                }
+              } else {
+                // 이장 없으면 바로 제정
+                applyLaw(proposedLaw, agentA.name, new Set([agentA.id, agentB.id]), [agentA, agentB]);
+              }
+            }, 3000);
+          }
+
           // 시장 거래 체크
           const aInMarket = isInMarket(agentA.x, agentA.y);
           const bInMarket = isInMarket(agentB.x, agentB.y);
@@ -669,17 +702,32 @@ export default function VillagePage() {
         return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
       });
 
-      // 그룹 토론 체크: 같은 건물에 3명 이상 walking 에이전트가 있으면
+      // 그룹 토론 체크: 같은 건물 안에 3명 이상 에이전트가 물리적으로 있으면
       if (tickRef.current % 180 === 0) { // 3초마다 체크
         const buildingGroups: Map<string, Agent[]> = new Map();
         for (const agent of agentsRef.current) {
-          if (agent.state !== "walking" || agent.isBaby || !agent.destination) continue;
-          const group = buildingGroups.get(agent.destination) || [];
-          group.push(agent);
-          buildingGroups.set(agent.destination, group);
+          if (agent.isBaby) continue;
+          // 에이전트 좌표가 실제로 건물 안에 있는지 체크
+          for (const b of VILLAGE_BUILDINGS) {
+            const inMain = agent.x >= b.x && agent.x <= b.x + b.width && agent.y >= b.y && agent.y <= b.y + b.height;
+            let inWing = false;
+            if (b.wings) {
+              for (const w of b.wings) {
+                if (agent.x >= b.x + w.dx && agent.x <= b.x + w.dx + w.w && agent.y >= b.y + w.dy && agent.y <= b.y + w.dy + w.h) {
+                  inWing = true; break;
+                }
+              }
+            }
+            if (inMain || inWing) {
+              const group = buildingGroups.get(b.id) || [];
+              group.push(agent);
+              buildingGroups.set(b.id, group);
+              break; // 하나의 건물에만 속함
+            }
+          }
         }
         for (const [buildingId, group] of buildingGroups) {
-          if (group.length >= 3 && !pendingGroupChatRef.current.has(buildingId) && Math.random() < 0.4) {
+          if (group.length >= 2 && !pendingGroupChatRef.current.has(buildingId) && Math.random() < 0.5) {
             // 최대 5명까지만
             const participants = group.slice(0, 5);
             const building = VILLAGE_BUILDINGS.find(b => b.id === buildingId);
