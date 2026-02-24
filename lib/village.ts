@@ -30,6 +30,8 @@ export interface Agent {
   reputation: number; // 0~100, 기본 50
   // 🏛️ 이장 여부
   isMayor?: boolean;
+  // 🧱 블록 시스템
+  blocks?: { color: string; count: number }[]; // 보유 블록
 }
 
 // 🏛️ 마을 법률
@@ -129,6 +131,121 @@ export const HOME_UPGRADES = [
   { level: 2, name: "대형 주택", price: 15_000_000, sizeBonus: 60, extraFurniture: 4 },
   { level: 3, name: "맨션", price: 50_000_000, sizeBonus: 100, extraFurniture: 6 },
 ];
+
+// 🧱 블록 시스템
+export const BLOCK_COLORS = [
+  { name: "빨강", color: "#e74c3c", price: 10_000 },
+  { name: "주황", color: "#e67e22", price: 10_000 },
+  { name: "노랑", color: "#f1c40f", price: 10_000 },
+  { name: "초록", color: "#2ecc71", price: 10_000 },
+  { name: "파랑", color: "#3498db", price: 10_000 },
+  { name: "남색", color: "#2c3e50", price: 10_000 },
+  { name: "보라", color: "#9b59b6", price: 10_000 },
+  { name: "분홍", color: "#e91e63", price: 10_000 },
+  { name: "하양", color: "#ecf0f1", price: 5_000 },
+  { name: "검정", color: "#2d3436", price: 5_000 },
+  { name: "갈색", color: "#8b6914", price: 5_000 },
+  { name: "하늘", color: "#74b9ff", price: 10_000 },
+];
+
+export interface PlacedBlock {
+  x: number;    // 월드 좌표 (픽셀)
+  y: number;
+  color: string;
+  placedBy: string; // agent id
+}
+
+// AI가 만들 수 있는 블록아트 패턴들 (agent personality에 따라 선택)
+export const BLOCK_ART_TEMPLATES: { name: string; width: number; height: number; pattern: string[][] }[] = [
+  {
+    name: "하트", width: 7, height: 6,
+    pattern: [
+      [" ","R","R"," ","R","R"," "],
+      ["R","R","R","R","R","R","R"],
+      ["R","R","R","R","R","R","R"],
+      [" ","R","R","R","R","R"," "],
+      [" "," ","R","R","R"," "," "],
+      [" "," "," ","R"," "," "," "],
+    ]
+  },
+  {
+    name: "별", width: 7, height: 7,
+    pattern: [
+      [" "," "," ","Y"," "," "," "],
+      [" "," ","Y","Y","Y"," "," "],
+      ["Y","Y","Y","Y","Y","Y","Y"],
+      [" ","Y","Y","Y","Y","Y"," "],
+      [" ","Y"," ","Y"," ","Y"," "],
+      ["Y"," "," "," "," "," ","Y"],
+      [" "," "," "," "," "," "," "],
+    ]
+  },
+  {
+    name: "집", width: 7, height: 7,
+    pattern: [
+      [" "," "," ","B"," "," "," "],
+      [" "," ","B","B","B"," "," "],
+      [" ","B","B","B","B","B"," "],
+      [" ","W","W","W","W","W"," "],
+      [" ","W"," ","W"," ","W"," "],
+      [" ","W"," ","W"," ","W"," "],
+      [" ","W","W","W","W","W"," "],
+    ]
+  },
+  {
+    name: "꽃", width: 7, height: 7,
+    pattern: [
+      [" "," ","P"," ","P"," "," "],
+      [" ","P","P","P","P","P"," "],
+      ["P","P","Y","Y","Y","P","P"],
+      [" ","P","Y","Y","Y","P"," "],
+      [" "," ","P","G","P"," "," "],
+      [" "," "," ","G"," "," "," "],
+      [" "," ","G","G","G"," "," "],
+    ]
+  },
+  {
+    name: "나무", width: 5, height: 7,
+    pattern: [
+      [" "," ","G"," "," "],
+      [" ","G","G","G"," "],
+      ["G","G","G","G","G"],
+      ["G","G","G","G","G"],
+      [" ","G","G","G"," "],
+      [" "," ","W"," "," "],
+      [" "," ","W"," "," "],
+    ]
+  },
+  {
+    name: "고양이", width: 7, height: 7,
+    pattern: [
+      ["W"," "," "," "," "," ","W"],
+      ["W","W"," "," "," ","W","W"],
+      ["W","W","W","W","W","W","W"],
+      ["W","B"," ","W"," ","B","W"],
+      ["W","W","W","P","W","W","W"],
+      [" ","W","W","W","W","W"," "],
+      [" "," ","W"," ","W"," "," "],
+    ]
+  },
+  {
+    name: "무지개", width: 9, height: 5,
+    pattern: [
+      [" ","R","R","R","R","R","R","R"," "],
+      ["O","O","O","O","O","O","O","O","O"],
+      ["Y","Y","Y","Y","Y","Y","Y","Y","Y"],
+      ["G","G","G","G","G","G","G","G","G"],
+      ["B","B","B","B","B","B","B","B","B"],
+    ]
+  },
+];
+
+// 패턴 문자 → 실제 색상 매핑
+export const PATTERN_COLOR_MAP: Record<string, string> = {
+  "R": "#e74c3c", "O": "#e67e22", "Y": "#f1c40f",
+  "G": "#2ecc71", "B": "#3498db", "P": "#e91e63",
+  "W": "#ecf0f1", "K": "#2d3436", "N": "#8b6914",
+};
 
 export interface Relationship {
   agentA: string;

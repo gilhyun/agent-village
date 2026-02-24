@@ -33,6 +33,10 @@ import {
   AgentOutfit,
   VillageLaw,
   PROPOSED_LAWS,
+  BLOCK_COLORS,
+  BLOCK_ART_TEMPLATES,
+  PATTERN_COLOR_MAP,
+  PlacedBlock,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -149,6 +153,7 @@ export default function VillagePage() {
   const [showLawsPopup, setShowLawsPopup] = useState(false);
   const [villageStartTime] = useState(Date.now()); // 마을 탄생 시간
   const [villageDays, setVillageDays] = useState(1); // 마을 일수
+  const placedBlocksRef = useRef<PlacedBlock[]>([]); // 🧱 배치된 블록들
   const worldObjectsRef = useRef<WorldObject[]>([]);
   const OBJECT_INTERACT_DISTANCE = 50;
 
@@ -959,6 +964,35 @@ export default function VillagePage() {
             }
           }
 
+          // 🧱 15% 확률로 블록아트 만들기!
+          if (Math.random() < 0.15 && agent.coins > 500_000 && !agent.isBaby) {
+            const template = BLOCK_ART_TEMPLATES[Math.floor(Math.random() * BLOCK_ART_TEMPLATES.length)];
+            // 블록 비용 계산 (패턴에서 공백 아닌 칸 × 1만원)
+            let blockCount = 0;
+            template.pattern.forEach(row => row.forEach(cell => { if (cell !== " ") blockCount++; }));
+            const totalCost = blockCount * 10_000;
+            if (agent.coins >= totalCost) {
+              // 집 근처 또는 현재 위치에 배치
+              const home = VILLAGE_BUILDINGS.find(b => b.id === agent.homeId);
+              const baseX = home ? home.x + home.width + 5 + Math.floor(Math.random() * 30) : agent.x + 20;
+              const baseY = home ? home.y + Math.floor(Math.random() * 30) : agent.y - 20;
+              const BLOCK_SIZE = 4; // 4px per block
+              const newBlocks: PlacedBlock[] = [];
+              template.pattern.forEach((row, ry) => {
+                row.forEach((cell, rx) => {
+                  if (cell !== " ") {
+                    const color = PATTERN_COLOR_MAP[cell] || "#ecf0f1";
+                    newBlocks.push({ x: baseX + rx * BLOCK_SIZE, y: baseY + ry * BLOCK_SIZE, color, placedBy: agent.id });
+                  }
+                });
+              });
+              placedBlocksRef.current = [...placedBlocksRef.current, ...newBlocks];
+              setConversationLog(prev => [`🧱 ${agent.emoji} ${agent.name}이(가) "${template.name}" 블록아트를 만들었다! (${blockCount}블록, -${formatCoins(totalCost)})`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `block-${now}-${agent.id}`, agentId: agent.id, text: `🧱 ${template.name}!`, timestamp: now, duration: 5000 }];
+              return { ...agent, coins: agent.coins - totalCost };
+            }
+          }
+
           return agent;
         });
       }
@@ -1257,6 +1291,17 @@ export default function VillagePage() {
     ctx.strokeRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
     ctx.restore();
+
+    // 🧱 블록아트 렌더링 (뷰포트 내 블록만)
+    const BLOCK_SIZE = 4;
+    for (const block of placedBlocksRef.current) {
+      const bx = block.x - cameraX;
+      const by = block.y - cameraY;
+      if (bx > -BLOCK_SIZE && bx < VIEWPORT_W && by > -BLOCK_SIZE && by < VIEWPORT_H) {
+        ctx.fillStyle = block.color;
+        ctx.fillRect(bx, by, BLOCK_SIZE, BLOCK_SIZE);
+      }
+    }
 
     // 🌙 낮/밤 오버레이
     const timeInfo = getTimeOfDay(villageStartTime);
