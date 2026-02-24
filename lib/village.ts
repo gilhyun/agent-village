@@ -264,7 +264,9 @@ export const VILLAGE_BUILDINGS: Building[] = [
       // 중앙 홀
       { type: "desk", x: 20, y: 130, w: 55, h: 25 },
       { type: "chair", x: 35, y: 160, w: 15, h: 15 },
-      { type: "fountain", x: 30, y: 60, w: 50, h: 45 },
+      { type: "desk", x: 25, y: 50, w: 50, h: 25 },
+      { type: "chair", x: 40, y: 80, w: 15, h: 15 },
+      { type: "plant", x: 90, y: 15, w: 18, h: 18 },
       // 왼쪽 서가 wing
       { type: "bookshelf", x: -85, y: 15, w: 50, h: 20 },
       { type: "bookshelf", x: -85, y: 42, w: 50, h: 20 },
@@ -282,13 +284,32 @@ export const VILLAGE_BUILDINGS: Building[] = [
     // 마을 광장 — 단순 큰 사각형 (광장은 원래 넓으니까)
     id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 500, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
     furniture: [
-      { type: "fountain", x: 110, y: 75, w: 65, h: 65 },
-      { type: "bench", x: 20, y: 40, w: 45, h: 15 },
-      { type: "bench", x: 215, y: 40, w: 45, h: 15 },
-      { type: "bench", x: 20, y: 165, w: 45, h: 15 },
-      { type: "bench", x: 215, y: 165, w: 45, h: 15 },
-      { type: "plant", x: 20, y: 100, w: 18, h: 18 },
-      { type: "plant", x: 242, y: 100, w: 18, h: 18 },
+      // 중앙 테이블 + 의자 세트
+      { type: "desk", x: 110, y: 85, w: 60, h: 30 },
+      { type: "chair", x: 120, y: 120, w: 15, h: 15 },
+      { type: "chair", x: 145, y: 120, w: 15, h: 15 },
+      { type: "chair", x: 120, y: 72, w: 15, h: 15 },
+      { type: "chair", x: 145, y: 72, w: 15, h: 15 },
+      // 벤치 4개 (벽 쪽)
+      { type: "bench", x: 20, y: 35, w: 45, h: 15 },
+      { type: "bench", x: 215, y: 35, w: 45, h: 15 },
+      { type: "bench", x: 20, y: 170, w: 45, h: 15 },
+      { type: "bench", x: 215, y: 170, w: 45, h: 15 },
+      // 화분 (코너)
+      { type: "plant", x: 15, y: 15, w: 18, h: 18 },
+      { type: "plant", x: 247, y: 15, w: 18, h: 18 },
+      { type: "plant", x: 15, y: 190, w: 18, h: 18 },
+      { type: "plant", x: 247, y: 190, w: 18, h: 18 },
+      // 게시판 (왼쪽 벽)
+      { type: "bookshelf", x: 15, y: 90, w: 20, h: 40 },
+      // 오른쪽 벽 장식 선반
+      { type: "bookshelf", x: 245, y: 90, w: 20, h: 40 },
+      // 작은 테이블 (좌측)
+      { type: "desk", x: 30, y: 130, w: 35, h: 20 },
+      { type: "chair", x: 38, y: 153, w: 15, h: 15 },
+      // 작은 테이블 (우측)
+      { type: "desk", x: 215, y: 130, w: 35, h: 20 },
+      { type: "chair", x: 225, y: 153, w: 15, h: 15 },
     ],
   },
   {
@@ -300,7 +321,8 @@ export const VILLAGE_BUILDINGS: Building[] = [
     ],
     furniture: [
       // 중앙
-      { type: "fountain", x: 60, y: 20, w: 55, h: 50 },
+      { type: "bench", x: 50, y: 25, w: 45, h: 15 },
+      { type: "plant", x: 100, y: 20, w: 18, h: 18 },
       { type: "bench", x: 15, y: 65, w: 45, h: 15 },
       { type: "bench", x: 120, y: 65, w: 45, h: 15 },
       // 왼쪽 숲 wing
