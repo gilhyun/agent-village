@@ -110,6 +110,7 @@ export default function VillagePage() {
   const relationshipsRef = useRef<Map<string, Relationship>>(new Map());
   const bubblesRef = useRef<ChatBubble[]>([]);
   const pendingChatsRef = useRef<Set<string>>(new Set());
+  const pendingGroupChatRef = useRef<Set<string>>(new Set()); // 그룹 채팅 중인 건물
   const animFrameRef = useRef<number>(0);
   const tickRef = useRef<number>(0);
 
@@ -242,6 +243,82 @@ export default function VillagePage() {
       }
     }
     return null;
+  }, []);
+
+  // Request group conversation (3+ agents in same building)
+  const requestGroupChat = useCallback(async (groupAgents: Agent[], buildingId: string, buildingName: string) => {
+    if (pendingGroupChatRef.current.has(buildingId)) return;
+    pendingGroupChatRef.current.add(buildingId);
+
+    // 모든 참가자 talking 상태로
+    const participantIds = new Set(groupAgents.map(a => a.id));
+    const centerX = groupAgents.reduce((s, a) => s + a.x, 0) / groupAgents.length;
+    const centerY = groupAgents.reduce((s, a) => s + a.y, 0) / groupAgents.length;
+
+    agentsRef.current = agentsRef.current.map(ag => {
+      if (participantIds.has(ag.id)) {
+        const angle = (Array.from(participantIds).indexOf(ag.id) / participantIds.size) * Math.PI * 2;
+        return { ...ag, x: centerX + Math.cos(angle) * 30, y: centerY + Math.sin(angle) * 30, state: "talking" as const };
+      }
+      return ag;
+    });
+
+    setConversationLog(prev => [`🗣️ ${groupAgents.map(a => a.emoji + a.name).join(", ")}이(가) ${buildingName}에서 토론을 시작합니다!`, ...prev].slice(0, 50));
+
+    try {
+      const res = await fetch("/api/group-chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agents: groupAgents.map(a => ({ id: a.id, name: a.name, emoji: a.emoji, personality: a.personality, coins: a.coins, product: a.product })),
+          buildingId,
+          buildingName,
+        }),
+      });
+      const data = await res.json();
+      if (data.messages && data.messages.length > 0) {
+        // 토론 주제 표시
+        if (data.topic) {
+          bubblesRef.current = [...bubblesRef.current, { id: `topic-${Date.now()}`, agentId: groupAgents[0].id, text: `📢 "${data.topic}"`, timestamp: Date.now(), duration: 6000 }];
+          setBubbles([...bubblesRef.current]);
+          setConversationLog(prev => [`📢 토론 주제: "${data.topic}"`, ...prev].slice(0, 50));
+        }
+
+        data.messages.forEach((msg: { speaker: string; text: string }, i: number) => {
+          setTimeout(() => {
+            const speakerAgent = agentsRef.current.find(a => a.name === msg.speaker);
+            if (speakerAgent) {
+              bubblesRef.current = [...bubblesRef.current, { id: `grp-${Date.now()}-${i}-${Math.random()}`, agentId: speakerAgent.id, text: msg.text, timestamp: Date.now(), duration: BUBBLE_DURATION }];
+              setBubbles([...bubblesRef.current]);
+              setConversationLog(prev => [`${speakerAgent.emoji} ${speakerAgent.name}: ${msg.text}`, ...prev].slice(0, 50));
+            }
+          }, i * 2500); // 그룹 대화는 더 느리게
+        });
+
+        const totalDuration = data.messages.length * 2500 + BUBBLE_DURATION;
+        setTimeout(() => {
+          agentsRef.current = agentsRef.current.map(ag => {
+            if (participantIds.has(ag.id)) {
+              const next = pickDestination(ag.id, ag.homeId, ag.destination, getPartnerHomeId(ag.id));
+              return { ...ag, state: "walking" as const, talkingTo: null, ...next };
+            }
+            return ag;
+          });
+          pendingGroupChatRef.current.delete(buildingId);
+        }, totalDuration);
+      } else {
+        pendingGroupChatRef.current.delete(buildingId);
+        agentsRef.current = agentsRef.current.map(ag => {
+          if (participantIds.has(ag.id)) return { ...ag, state: "walking" as const, talkingTo: null };
+          return ag;
+        });
+      }
+    } catch {
+      pendingGroupChatRef.current.delete(buildingId);
+      agentsRef.current = agentsRef.current.map(ag => {
+        if (participantIds.has(ag.id)) return { ...ag, state: "walking" as const, talkingTo: null };
+        return ag;
+      });
+    }
   }, []);
 
   // Request conversation
@@ -452,6 +529,26 @@ export default function VillagePage() {
         return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
       });
 
+      // 그룹 토론 체크: 같은 건물에 3명 이상 walking 에이전트가 있으면
+      if (tickRef.current % 180 === 0) { // 3초마다 체크
+        const buildingGroups: Map<string, Agent[]> = new Map();
+        for (const agent of agentsRef.current) {
+          if (agent.state !== "walking" || agent.isBaby || !agent.destination) continue;
+          const group = buildingGroups.get(agent.destination) || [];
+          group.push(agent);
+          buildingGroups.set(agent.destination, group);
+        }
+        for (const [buildingId, group] of buildingGroups) {
+          if (group.length >= 3 && !pendingGroupChatRef.current.has(buildingId) && Math.random() < 0.4) {
+            // 최대 5명까지만
+            const participants = group.slice(0, 5);
+            const building = VILLAGE_BUILDINGS.find(b => b.id === buildingId);
+            const buildingName = building?.name || buildingId;
+            requestGroupChat(participants, buildingId, buildingName);
+          }
+        }
+      }
+
       for (let i = 0; i < agentsRef.current.length; i++) {
         for (let j = i + 1; j < agentsRef.current.length; j++) {
           const a = agentsRef.current[i];
@@ -553,7 +650,7 @@ export default function VillagePage() {
     };
     animFrameRef.current = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [isRunning, agents.length, requestConversation]);
+  }, [isRunning, agents.length, requestConversation, requestGroupChat]);
 
   // Canvas rendering
   useEffect(() => {
