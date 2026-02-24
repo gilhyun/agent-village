@@ -55,7 +55,7 @@ const VIEWPORT_H = 600;
 const TS = TILE_SIZE * TILE_SCALE; // rendered tile size in px
 
 // 코인 포맷 (억/만)
-const DAY_DURATION = 20_000; // 20초 = 1일
+const DAY_DURATION = 60_000; // 60초 = 1일 (밤 ~18초)
 const NIGHT_START = 0.7; // 70% 지점부터 밤 (14초 낮, 6초 밤)
 const DAWN_START = 0.0;  // 0% = 새벽/일출
 const DUSK_START = 0.65; // 65% = 해질녘
@@ -965,7 +965,7 @@ export default function VillagePage() {
 
       // 마을 날짜 업데이트 (20초 = 1일)
       const elapsedMs = now - villageStartTime;
-      const newDays = Math.floor(elapsedMs / 20_000) + 1;
+      const newDays = Math.floor(elapsedMs / DAY_DURATION) + 1;
       if (newDays !== villageDays) setVillageDays(newDays);
 
       bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
