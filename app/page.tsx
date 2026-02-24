@@ -18,6 +18,14 @@ import {
   relationshipKey,
   getConversationType,
 } from "@/lib/village";
+import {
+  CHARACTER_PALETTES,
+  PIXEL_SIZE,
+  SPRITE_WIDTH,
+  SPRITE_HEIGHT,
+  drawSprite,
+  getFrame,
+} from "@/lib/sprites";
 
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,6 +49,7 @@ export default function VillagePage() {
   const bubblesRef = useRef<ChatBubble[]>([]);
   const pendingChatsRef = useRef<Set<string>>(new Set());
   const animFrameRef = useRef<number>(0);
+  const tickRef = useRef<number>(0);
 
   // Initialize agents
   useEffect(() => {
@@ -233,6 +242,7 @@ export default function VillagePage() {
 
     const gameLoop = () => {
       const now = Date.now();
+      tickRef.current += 1;
 
       // Update agent positions
       agentsRef.current = agentsRef.current.map((agent) => {
@@ -480,42 +490,46 @@ export default function VillagePage() {
       ctx.fillText(obj.name, obj.x, obj.y + 24);
     });
 
-    // Draw agents
+    // Draw agents (pixel art sprites)
+    const tick = tickRef.current;
     agents.forEach((agent) => {
+      const palette = CHARACTER_PALETTES[agent.id] || CHARACTER_PALETTES["agent-1"];
+      const frame = getFrame(agent.state, tick);
+
+      // Determine facing direction based on movement
+      const flip = agent.targetX < agent.x;
+
       // Shadow
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath();
-      ctx.ellipse(agent.x, agent.y + 18, 14, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 2, 12, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Body circle
-      ctx.fillStyle = agent.color;
-      ctx.beginPath();
-      ctx.arc(agent.x, agent.y, 20, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw sprite
+      drawSprite(ctx, frame, palette, agent.x, agent.y, PIXEL_SIZE, flip);
 
-      // Border
-      ctx.strokeStyle = agent.state === "talking" ? "#fbbf24" : "rgba(255,255,255,0.3)";
-      ctx.lineWidth = agent.state === "talking" ? 3 : 1;
-      ctx.stroke();
-
-      // Emoji
-      ctx.font = "22px serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(agent.emoji, agent.x, agent.y - 1);
+      // Talking glow
+      if (agent.state === "talking") {
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const spriteW = SPRITE_WIDTH * PIXEL_SIZE;
+        const spriteH = SPRITE_HEIGHT * PIXEL_SIZE;
+        ctx.roundRect(agent.x - spriteW / 2 - 3, agent.y - spriteH / 2 - 3, spriteW + 6, spriteH + 6, 4);
+        ctx.stroke();
+      }
 
       // Name
-      ctx.font = "bold 11px sans-serif";
+      ctx.font = "bold 10px sans-serif";
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
-      ctx.fillText(agent.name, agent.x, agent.y + 35);
+      ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
       // Talking indicator
       if (agent.state === "talking") {
         ctx.fillStyle = "#fbbf24";
         ctx.font = "12px sans-serif";
-        ctx.fillText("💬", agent.x + 22, agent.y - 18);
+        ctx.fillText("💬", agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 4, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2);
       }
     });
 
@@ -525,7 +539,7 @@ export default function VillagePage() {
       if (!agent) return;
 
       const bubbleX = agent.x;
-      const bubbleY = agent.y - 50;
+      const bubbleY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 20;
       const padding = 8;
       const maxWidth = 180;
 
