@@ -101,6 +101,32 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// 문장 단위로 자르기 (글자 잘림 방지)
+function trimToSentence(text: string, maxLen: number = 60): string {
+  if (text.length <= maxLen) return text;
+  // 마지막 문장부호 위치 찾기
+  const cutText = text.slice(0, maxLen);
+  const lastPunct = Math.max(
+    cutText.lastIndexOf('.'),
+    cutText.lastIndexOf('!'),
+    cutText.lastIndexOf('?'),
+    cutText.lastIndexOf('~'),
+    cutText.lastIndexOf('요'),
+    cutText.lastIndexOf('야'),
+    cutText.lastIndexOf('지'),
+    cutText.lastIndexOf('다'),
+    cutText.lastIndexOf('해'),
+    cutText.lastIndexOf('어'),
+    cutText.lastIndexOf('네'),
+    cutText.lastIndexOf('데'),
+  );
+  if (lastPunct > maxLen * 0.4) return text.slice(0, lastPunct + 1);
+  // 마지막 공백에서 자르기
+  const lastSpace = cutText.lastIndexOf(' ');
+  if (lastSpace > maxLen * 0.4) return text.slice(0, lastSpace);
+  return cutText;
+}
+
 function getLocationHint(buildingId?: string): string {
   if (!buildingId) return "";
   for (const [key, hints] of Object.entries(LOCATION_HINTS)) {
@@ -225,7 +251,7 @@ export async function POST(req: Request) {
       config: { temperature: 1.0, maxOutputTokens: 300 },
     });
 
-    const textA1 = (responseA1.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
+    const textA1 = trimToSentence((responseA1.text || "").trim().replace(/^["']|["']$/g, ""));
     messages.push({ speaker: agentA.name, text: textA1 });
     historyA.push({ role: "model", parts: [{ text: textA1 }] });
 
@@ -247,7 +273,7 @@ export async function POST(req: Request) {
           config: { temperature: 1.0, maxOutputTokens: 300 },
         });
 
-        const textA = (resA.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
+        const textA = trimToSentence((resA.text || "").trim().replace(/^["']|["']$/g, ""));
         messages.push({ speaker: agentA.name, text: textA });
         historyA.push({ role: "model", parts: [{ text: textA }] });
       } else {
@@ -268,7 +294,7 @@ export async function POST(req: Request) {
           config: { temperature: 1.0, maxOutputTokens: 300 },
         });
 
-        const textB = (resB.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
+        const textB = trimToSentence((resB.text || "").trim().replace(/^["']|["']$/g, ""));
         messages.push({ speaker: agentB.name, text: textB });
         historyB.push({ role: "model", parts: [{ text: textB }] });
       }
