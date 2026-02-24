@@ -19,6 +19,17 @@ export interface Agent {
   isBaby?: boolean; // 아기 여부
   birthTime?: number; // 태어난 시간 (Date.now())
   parentIds?: string[]; // 부모 ID들
+  // 💰 금융 시스템
+  coins: number; // 보유 코인
+  product?: AgentProduct | null; // 판매 중인 상품
+}
+
+// 에이전트 상품
+export interface AgentProduct {
+  name: string;
+  emoji: string;
+  price: number;
+  description: string;
 }
 
 export interface Relationship {
@@ -74,6 +85,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-minsu",
+    coins: 100_000_000,
+    product: { name: "AI 챗봇", emoji: "🤖", price: 500_000, description: "민수가 만든 AI 챗봇 프로그램" },
   },
   {
     id: "agent-2",
@@ -85,6 +98,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-jieun",
+    coins: 100_000_000,
+    product: { name: "수채화", emoji: "🎨", price: 800_000, description: "지은이 직접 그린 수채화 작품" },
   },
   {
     id: "agent-3",
@@ -96,6 +111,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-junho",
+    coins: 100_000_000,
+    product: { name: "탐험 지도", emoji: "🗺️", price: 300_000, description: "준호가 직접 탐험하며 그린 마을 지도" },
   },
   {
     id: "agent-4",
@@ -107,6 +124,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-hana",
+    coins: 100_000_000,
+    product: { name: "에너지 물약", emoji: "🧪", price: 600_000, description: "하나가 조제한 에너지 물약" },
   },
   {
     id: "agent-5",
@@ -118,6 +137,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-taehyun",
+    coins: 100_000_000,
+    product: { name: "특제 도시락", emoji: "🍱", price: 400_000, description: "태현의 정성 가득 특제 도시락" },
   },
 ];
 
@@ -350,6 +371,33 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "bench", x: 140, y: -15, w: 40, h: 15 },
     ],
   },
+  {
+    // 시장 — L자형 (메인 홀 + 오른쪽 창고)
+    id: "market", name: "시장", emoji: "🏪", x: 700, y: 880, width: 220, height: 140, roofColor: "#b45309", wallColor: "#c89858", floorColor: "#e8d8b8",
+    wings: [
+      { dx: 210, dy: 20, w: 80, h: 100 },  // 오른쪽 창고
+    ],
+    furniture: [
+      // 메인 홀 — 가판대들
+      { type: "desk", x: 20, y: 20, w: 50, h: 22 },
+      { type: "desk", x: 80, y: 20, w: 50, h: 22 },
+      { type: "desk", x: 145, y: 20, w: 50, h: 22 },
+      { type: "desk", x: 20, y: 65, w: 50, h: 22 },
+      { type: "desk", x: 80, y: 65, w: 50, h: 22 },
+      { type: "desk", x: 145, y: 65, w: 50, h: 22 },
+      // 의자
+      { type: "chair", x: 35, y: 45, w: 15, h: 15 },
+      { type: "chair", x: 100, y: 45, w: 15, h: 15 },
+      { type: "chair", x: 160, y: 45, w: 15, h: 15 },
+      // 벤치
+      { type: "bench", x: 20, y: 110, w: 50, h: 15 },
+      { type: "bench", x: 145, y: 110, w: 50, h: 15 },
+      // 오른쪽 창고 — 선반
+      { type: "bookshelf", x: 225, y: 30, w: 45, h: 20 },
+      { type: "bookshelf", x: 225, y: 60, w: 45, h: 20 },
+      { type: "bookshelf", x: 225, y: 90, w: 45, h: 20 },
+    ],
+  },
 ];
 
 // Decorations
@@ -518,12 +566,17 @@ const BABY_COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#f9
 
 let babyCounter = 0;
 
-export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x" | "y" | "targetX" | "targetY" | "destination"> {
+export function createBabyAgent(parentA: Agent, parentB: Agent): { baby: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "destination">; inheritanceA: number; inheritanceB: number } {
   babyCounter++;
   const isBoy = Math.random() > 0.5;
   const names = isBoy ? BABY_NAMES_M : BABY_NAMES_F;
   const name = names[babyCounter % names.length];
   const color = BABY_COLORS[babyCounter % BABY_COLORS.length];
+
+  // 재산 상속: 각 부모의 45%씩 (합계 90%)
+  const inheritanceA = Math.floor(parentA.coins * 0.45);
+  const inheritanceB = Math.floor(parentB.coins * 0.45);
+  const babyCoins = inheritanceA + inheritanceB;
 
   // Mix parent traits
   const traits = [
@@ -533,20 +586,23 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x"
     `${parentA.name}의 성격과 ${parentB.name}의 성격을 닮았다`,
   ];
 
-  return {
+  const baby = {
     id: `baby-${Date.now()}-${babyCounter}`,
     name,
     emoji: isBoy ? "👦" : "👧",
     color,
     personality: traits.join(". ") + ".",
     speed: 1.5 + Math.random() * 0.8,
-    state: "walking",
+    state: "walking" as const,
     talkingTo: null,
-    homeId: parentA.homeId, // lives with parents
+    homeId: parentA.homeId,
     isBaby: true,
     birthTime: Date.now(),
     parentIds: [parentA.id, parentB.id],
+    coins: babyCoins,
   };
+
+  return { baby, inheritanceA, inheritanceB };
 }
 
 // 아기 → 성인 성장 (GROW_TIME_MS 후)
@@ -559,12 +615,24 @@ const ADULT_PERSONALITIES = [
   "사교적이고 따뜻한", "탐구적이고 호기심 많은", "낙천적이고 유머 있는",
 ];
 
+const GROWN_PRODUCTS: { name: string; emoji: string; price: number; description: string }[] = [
+  { name: "수제 비누", emoji: "🧼", price: 200_000, description: "향기로운 수제 비누" },
+  { name: "목걸이", emoji: "📿", price: 350_000, description: "손으로 만든 예쁜 목걸이" },
+  { name: "약초차", emoji: "🍵", price: 250_000, description: "마을 산에서 딴 약초차" },
+  { name: "수제 잼", emoji: "🫙", price: 180_000, description: "과일로 만든 수제 잼" },
+  { name: "나무 인형", emoji: "🪆", price: 450_000, description: "깎아 만든 나무 인형" },
+  { name: "꽃다발", emoji: "💐", price: 150_000, description: "마을 들판의 꽃다발" },
+  { name: "향초", emoji: "🕯️", price: 280_000, description: "아로마 향초" },
+  { name: "수제 쿠키", emoji: "🍪", price: 120_000, description: "갓 구운 수제 쿠키" },
+];
+
 export function growUpBaby(agent: Agent): Agent {
   const isBoy = agent.emoji === "👦";
   const emoji = isBoy
     ? ADULT_EMOJIS_M[Math.floor(Math.random() * ADULT_EMOJIS_M.length)]
     : ADULT_EMOJIS_F[Math.floor(Math.random() * ADULT_EMOJIS_F.length)];
   const personalityTrait = ADULT_PERSONALITIES[Math.floor(Math.random() * ADULT_PERSONALITIES.length)];
+  const product = GROWN_PRODUCTS[Math.floor(Math.random() * GROWN_PRODUCTS.length)];
 
   return {
     ...agent,
@@ -572,6 +640,7 @@ export function growUpBaby(agent: Agent): Agent {
     isBaby: false,
     speed: 1.8 + Math.random() * 1.0,
     personality: `${agent.name}. ${personalityTrait} 성격. 마을에서 자란 2세대.`,
+    product: { ...product, description: `${agent.name}의 ${product.description}` },
   };
 }
 

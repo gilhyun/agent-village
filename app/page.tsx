@@ -49,6 +49,28 @@ const VIEWPORT_W = 800;
 const VIEWPORT_H = 600;
 const TS = TILE_SIZE * TILE_SCALE; // rendered tile size in px
 
+// 코인 포맷 (억/만)
+function formatCoins(coins: number): string {
+  if (coins >= 100_000_000) return `${(coins / 100_000_000).toFixed(1)}억`;
+  if (coins >= 10_000) return `${(coins / 10_000).toFixed(0)}만`;
+  return `${coins}`;
+}
+
+// 시장 안에 있는지 체크
+function isInMarket(x: number, y: number): boolean {
+  const market = VILLAGE_BUILDINGS.find(b => b.id === "market");
+  if (!market) return false;
+  // 메인 영역
+  if (x >= market.x && x <= market.x + market.width && y >= market.y && y <= market.y + market.height) return true;
+  // wing 영역
+  if (market.wings) {
+    for (const w of market.wings) {
+      if (x >= market.x + w.dx && x <= market.x + w.dx + w.w && y >= market.y + w.dy && y <= market.y + w.dy + w.h) return true;
+    }
+  }
+  return false;
+}
+
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -279,13 +301,20 @@ export default function VillagePage() {
           // Baby born! Add new agent
           if (newStage === "parent") {
             setTimeout(() => {
-              const babyTemplate = createBabyAgent(agentA, agentB);
+              const { baby: babyTemplate, inheritanceA, inheritanceB } = createBabyAgent(agentA, agentB);
+              // 부모 재산 차감
+              agentsRef.current = agentsRef.current.map(ag => {
+                if (ag.id === agentA.id) return { ...ag, coins: ag.coins - inheritanceA };
+                if (ag.id === agentB.id) return { ...ag, coins: ag.coins - inheritanceB };
+                return ag;
+              });
               const pos = randomPosition();
               const target = newTarget();
               const babyAgent: Agent = { ...babyTemplate, ...pos, ...target };
               agentsRef.current = [...agentsRef.current, babyAgent];
               setAgents([...agentsRef.current]);
-              setConversationLog((prev) => [`🎉 ${babyAgent.emoji} ${babyAgent.name}이(가) 마을에 태어났습니다! (${agentA.name} & ${agentB.name}의 아이)`, ...prev].slice(0, 50));
+              const inheritTotal = inheritanceA + inheritanceB;
+              setConversationLog((prev) => [`🎉 ${babyAgent.emoji} ${babyAgent.name}이(가) 마을에 태어났습니다! (${agentA.name} & ${agentB.name}의 아이) 💰 ${formatCoins(inheritTotal)} 상속`, ...prev].slice(0, 50));
               bubblesRef.current = [
                 ...bubblesRef.current,
                 { id: `baby-${Date.now()}`, agentId: babyAgent.id, text: "응애~ 👶", timestamp: Date.now(), duration: 8000 },
@@ -297,6 +326,36 @@ export default function VillagePage() {
 
         const totalDuration = data.messages.length * 2000 + BUBBLE_DURATION;
         setTimeout(() => {
+          // 시장 거래 체크
+          const aInMarket = isInMarket(agentA.x, agentA.y);
+          const bInMarket = isInMarket(agentB.x, agentB.y);
+          if ((aInMarket || bInMarket) && !agentA.isBaby && !agentB.isBaby) {
+            // 50% 확률로 거래 발생
+            if (Math.random() < 0.5) {
+              const seller = agentA.product && agentB.coins >= agentA.product.price ? agentA :
+                             agentB.product && agentA.coins >= agentB.product.price ? agentB : null;
+              const buyer = seller?.id === agentA.id ? agentB : agentA;
+              if (seller && seller.product && buyer.coins >= seller.product.price) {
+                const price = seller.product.price;
+                agentsRef.current = agentsRef.current.map(ag => {
+                  if (ag.id === buyer.id) return { ...ag, coins: ag.coins - price };
+                  if (ag.id === seller.id) return { ...ag, coins: ag.coins + price };
+                  return ag;
+                });
+                setConversationLog((prev) => [
+                  `💰 ${buyer.emoji} ${buyer.name}이(가) ${seller.emoji} ${seller.name}의 ${seller.product!.emoji} ${seller.product!.name}을(를) ${formatCoins(price)}에 구매!`,
+                  ...prev
+                ].slice(0, 50));
+                bubblesRef.current = [
+                  ...bubblesRef.current,
+                  { id: `trade-${Date.now()}-s`, agentId: seller.id, text: `💰 +${formatCoins(price)}!`, timestamp: Date.now(), duration: 4000 },
+                  { id: `trade-${Date.now()}-b`, agentId: buyer.id, text: `${seller.product!.emoji} 구매!`, timestamp: Date.now(), duration: 4000 },
+                ];
+                setBubbles([...bubblesRef.current]);
+              }
+            }
+          }
+
           agentsRef.current = agentsRef.current.map((a) => {
             if (a.id === agentA.id || a.id === agentB.id) {
               const next = pickDestination(a.id, a.homeId, a.destination, getPartnerHomeId(a.id));
@@ -525,6 +584,13 @@ export default function VillagePage() {
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
+      // 코인 표시
+      if (agent.coins !== undefined && !agent.isBaby) {
+        ctx.font = "8px sans-serif";
+        ctx.fillStyle = "#fbbf24";
+        ctx.fillText(`💰${formatCoins(agent.coins)}`, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
+      }
+
       // 칭호 명찰 (title badge)
       if (agent.title) {
         const titleText = agent.title;
@@ -552,7 +618,7 @@ export default function VillagePage() {
       if (agent.state === "walking" && agent.destination) {
         ctx.font = "8px sans-serif";
         ctx.fillStyle = "rgba(255,255,255,0.5)";
-        ctx.fillText(`→ ${getBuildingName(agent.destination)}`, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
+        ctx.fillText(`→ ${getBuildingName(agent.destination)}`, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 34);
       }
 
       if (agent.state === "talking") {
