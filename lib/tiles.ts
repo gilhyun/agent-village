@@ -921,38 +921,12 @@ export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
   ctx.lineTo(b.x + b.width, b.y);
   ctx.stroke();
 
-  // ── 지붕 장식 (Roof ornament) ──
-  ctx.fillStyle = roofC;
-  ctx.beginPath();
-  ctx.moveTo(b.x - 4, backY);
-  ctx.lineTo(b.x + b.width / 2, backY - 18);
-  ctx.lineTo(b.x + b.width + 4, backY);
-  ctx.closePath();
-  ctx.fill();
-  // 지붕 하이라이트
-  ctx.fillStyle = shadeColor(roofC, 25);
-  ctx.beginPath();
-  ctx.moveTo(b.x + 6, backY);
-  ctx.lineTo(b.x + b.width / 2, backY - 12);
-  ctx.lineTo(b.x + b.width / 2, backY);
-  ctx.closePath();
-  ctx.fill();
-  // 지붕 외곽
-  ctx.strokeStyle = shadeColor(roofC, -35);
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(b.x - 4, backY);
-  ctx.lineTo(b.x + b.width / 2, backY - 18);
-  ctx.lineTo(b.x + b.width + 4, backY);
-  ctx.closePath();
-  ctx.stroke();
-
   // ── 건물 이름 ──
   ctx.font = "bold 11px sans-serif";
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.9)";
   ctx.shadowBlur = 5;
-  ctx.fillText(b.name, b.x + b.width / 2, backY - 20);
+  ctx.fillText(b.name, b.x + b.width / 2, backY - 5);
   ctx.shadowBlur = 0;
 }
