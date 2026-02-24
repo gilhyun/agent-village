@@ -804,8 +804,21 @@ export default function VillagePage() {
         return agent;
       });
 
-      // 🏛️ 이장 선출 (매 600틱 = ~10초)
+      // 🏛️ 이장 선출 + 월급 (매 600틱 = ~10초)
       if (tickRef.current % 600 === 0 && tickRef.current > 0) {
+        // 이장 월급 지급 (매 10초마다 100만원)
+        const MAYOR_SALARY = 1_000_000;
+        const currentMayorForPay = agentsRef.current.find(a => a.isMayor);
+        if (currentMayorForPay) {
+          agentsRef.current = agentsRef.current.map(ag =>
+            ag.id === currentMayorForPay.id ? { ...ag, coins: ag.coins + MAYOR_SALARY } : ag
+          );
+          // 5번에 1번만 로그 (너무 자주 뜨면 스팸)
+          if (tickRef.current % 3000 === 0) {
+            setConversationLog(prev => [`💵 ${currentMayorForPay.emoji} ${currentMayorForPay.name} 이장 월급 지급! (+${formatCoins(MAYOR_SALARY)})`, ...prev].slice(0, 50));
+          }
+        }
+
         const adultAgents = agentsRef.current.filter(a => !a.isBaby);
         if (adultAgents.length >= 3) {
           // 점수 = 평판 × 2 + 코인 순위 + 관계 수
