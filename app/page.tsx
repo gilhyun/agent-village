@@ -198,6 +198,7 @@ export default function VillagePage() {
           agentB: { id: agentB.id, name: agentB.name, emoji: agentB.emoji, personality: agentB.personality },
           conversationType: convType, meetCount: rel.meetCount,
           stage: rel.stage,
+          buildingId: agentA.destination || agentB.destination || null,
         }),
       });
       const data = await res.json();
