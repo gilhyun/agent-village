@@ -552,6 +552,12 @@ export default function VillagePage() {
 
           // Baby born! Add new agent
           if (newStage === "parent") {
+            // 🏰 폐쇄 정책 체크 — 인구 증가 제한!
+            const bordersOpen = getLawEffect(villageLawsRef.current, "open_borders");
+            if (bordersOpen === false) {
+              // 폐쇄 정책: 출산 차단!
+              setConversationLog(prev => [`🏰 ${agentA.emoji}${agentA.name}와 ${agentB.emoji}${agentB.name}의 출산이 폐쇄 정책으로 제한되었습니다...`, ...prev].slice(0, 50));
+            } else {
             setTimeout(() => {
               const { baby: babyTemplate, inheritanceA, inheritanceB } = createBabyAgent(agentA, agentB);
               // 부모 재산 차감 + 출산 장려금
@@ -574,6 +580,7 @@ export default function VillagePage() {
               ];
               setBubbles([...bubblesRef.current]);
             }, data.messages.length * 2000 + 3000);
+            } // end bordersOpen check
           }
         }
 
