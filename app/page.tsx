@@ -5,6 +5,8 @@ import {
   Agent,
   Relationship,
   ChatBubble,
+  WorldObject,
+  SPAWNABLE_OBJECTS,
   DEFAULT_AGENTS,
   MAP_WIDTH,
   MAP_HEIGHT,
@@ -29,6 +31,10 @@ export default function VillagePage() {
   const [isSendingDecree, setIsSendingDecree] = useState(false);
   const [lastDecree, setLastDecree] = useState<string | null>(null);
   const [godEffect, setGodEffect] = useState(false); // sky + lightning effect
+  const [worldObjects, setWorldObjects] = useState<WorldObject[]>([]);
+  const [showObjectPicker, setShowObjectPicker] = useState(false);
+  const worldObjectsRef = useRef<WorldObject[]>([]);
+  const OBJECT_INTERACT_DISTANCE = 50;
 
   const agentsRef = useRef<Agent[]>([]);
   const relationshipsRef = useRef<Map<string, Relationship>>(new Map());
@@ -43,6 +49,30 @@ export default function VillagePage() {
     setAgents(initialized);
     agentsRef.current = initialized;
   }, [agentCount]);
+
+  // Spawn object into the world
+  const spawnObject = useCallback((obj: { name: string; emoji: string }) => {
+    const newObj: WorldObject = {
+      id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: obj.name,
+      emoji: obj.emoji,
+      x: 100 + Math.random() * (MAP_WIDTH - 200),
+      y: 100 + Math.random() * (MAP_HEIGHT - 200),
+      createdAt: Date.now(),
+    };
+    worldObjectsRef.current = [...worldObjectsRef.current, newObj];
+    setWorldObjects([...worldObjectsRef.current]);
+    setShowObjectPicker(false);
+
+    // God effect
+    setGodEffect(true);
+    setTimeout(() => setGodEffect(false), 2000);
+
+    setConversationLog((prev) => [
+      `⚡ 신이 ${obj.emoji} ${obj.name}을(를) 마을에 내려놓았다`,
+      ...prev,
+    ].slice(0, 50));
+  }, []);
 
   // Send God's decree
   const sendDecree = useCallback(async () => {
@@ -255,6 +285,52 @@ export default function VillagePage() {
         }
       }
 
+      // Check agents near world objects
+      for (const agent of agentsRef.current) {
+        if (agent.state === "talking") continue;
+        for (const obj of worldObjectsRef.current) {
+          const dist = distance(agent, obj);
+          if (dist < OBJECT_INTERACT_DISTANCE) {
+            const objKey = `obj-${agent.id}-${obj.id}`;
+            if (!pendingChatsRef.current.has(objKey)) {
+              pendingChatsRef.current.add(objKey);
+
+              // Agent reacts to the object
+              fetch("/api/react-object", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  agent: { name: agent.name, emoji: agent.emoji, personality: agent.personality },
+                  object: { name: obj.name, emoji: obj.emoji },
+                }),
+              })
+                .then((r) => r.json())
+                .then((data) => {
+                  if (data.reaction) {
+                    const bubble: ChatBubble = {
+                      id: `obj-react-${Date.now()}-${Math.random()}`,
+                      agentId: agent.id,
+                      text: data.reaction,
+                      timestamp: Date.now(),
+                      duration: BUBBLE_DURATION,
+                    };
+                    bubblesRef.current = [...bubblesRef.current, bubble];
+                    setBubbles([...bubblesRef.current]);
+
+                    setConversationLog((prev) => [
+                      `${agent.emoji} ${agent.name}: ${data.reaction} (${obj.emoji} 발견)`,
+                      ...prev,
+                    ].slice(0, 50));
+                  }
+                  // Cooldown before reacting to same object again
+                  setTimeout(() => pendingChatsRef.current.delete(objKey), 30000);
+                })
+                .catch(() => pendingChatsRef.current.delete(objKey));
+            }
+          }
+        }
+      }
+
       // Clean old bubbles
       bubblesRef.current = bubblesRef.current.filter(
         (b) => now - b.timestamp < b.duration
@@ -358,6 +434,32 @@ export default function VillagePage() {
       ctx.fill();
     });
 
+    // Draw world objects
+    worldObjects.forEach((obj) => {
+      // Glow effect
+      ctx.shadowColor = "#fbbf24";
+      ctx.shadowBlur = 8;
+
+      // Object circle background
+      ctx.fillStyle = "rgba(251, 191, 36, 0.15)";
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+
+      // Emoji
+      ctx.font = "24px serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(obj.emoji, obj.x, obj.y);
+
+      // Label
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText(obj.name, obj.x, obj.y + 24);
+    });
+
     // Draw agents
     agents.forEach((agent) => {
       // Shadow
@@ -454,7 +556,7 @@ export default function VillagePage() {
         }
       }
     });
-  }, [agents, bubbles, godEffect]);
+  }, [agents, bubbles, godEffect, worldObjects]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center p-4 md:p-8">
@@ -591,6 +693,46 @@ export default function VillagePage() {
             <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
               ⚡ 신의 목소리
             </h3>
+
+            {/* Object Spawner */}
+            <div className="mb-3">
+              <button
+                onClick={() => setShowObjectPicker(!showObjectPicker)}
+                className="w-full px-3 py-2 text-xs font-bold rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/40 transition-all"
+              >
+                {showObjectPicker ? "✕ 닫기" : "🎁 오브젝트 소환"}
+              </button>
+              {showObjectPicker && (
+                <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  {SPAWNABLE_OBJECTS.map((obj) => (
+                    <button
+                      key={obj.name}
+                      onClick={() => spawnObject(obj)}
+                      className="flex flex-col items-center gap-0.5 p-2 rounded-lg bg-zinc-800/80 hover:bg-purple-600/30 border border-zinc-700 hover:border-purple-500/40 transition-all"
+                    >
+                      <span className="text-lg">{obj.emoji}</span>
+                      <span className="text-[10px] text-zinc-400">{obj.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Active Objects Count */}
+            {worldObjects.length > 0 && (
+              <div className="mb-2 flex items-center justify-between text-xs text-purple-300/60">
+                <span>마을 오브젝트: {worldObjects.length}개</span>
+                <button
+                  onClick={() => {
+                    worldObjectsRef.current = [];
+                    setWorldObjects([]);
+                  }}
+                  className="text-red-400/60 hover:text-red-400 transition-colors"
+                >
+                  전부 제거
+                </button>
+              </div>
+            )}
             {lastDecree && (
               <div className="text-xs text-amber-300/60 mb-2 italic truncate">
                 마지막 명령: &quot;{lastDecree}&quot;

@@ -30,6 +30,31 @@ export interface ChatBubble {
   duration: number; // ms to display
 }
 
+export interface WorldObject {
+  id: string;
+  name: string;
+  emoji: string;
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
+// Preset objects the god can spawn
+export const SPAWNABLE_OBJECTS = [
+  { name: "항아리", emoji: "🏺" },
+  { name: "꽃", emoji: "🌸" },
+  { name: "보물상자", emoji: "📦" },
+  { name: "모닥불", emoji: "🔥" },
+  { name: "별", emoji: "⭐" },
+  { name: "책", emoji: "📖" },
+  { name: "기타", emoji: "🎸" },
+  { name: "케이크", emoji: "🎂" },
+  { name: "검", emoji: "⚔️" },
+  { name: "다이아몬드", emoji: "💎" },
+  { name: "고양이", emoji: "🐱" },
+  { name: "나무", emoji: "🌳" },
+];
+
 // Default agent templates
 export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = [
   {
@@ -106,8 +131,8 @@ export function newTarget() {
   };
 }
 
-// Calculate distance between two agents
-export function distance(a: Agent, b: Agent): number {
+// Calculate distance between two points
+export function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
