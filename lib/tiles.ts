@@ -735,30 +735,84 @@ export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
     }
   }
 
-  // ── 바닥 (Floor) ──
-  ctx.fillStyle = floor;
+  // ── 바닥 (Floor — 나무 마루) ──
+  ctx.fillStyle = "#b8885c";
   ctx.fillRect(b.x, b.y, b.width, b.height);
 
-  // 바닥 타일 패턴 (체커보드 느낌)
-  const floorDark = shadeColor(floor, -10);
-  const floorLight = shadeColor(floor, 8);
-  const tileS = 16;
-  for (let fy = b.y; fy < b.y + b.height; fy += tileS) {
-    for (let fx = b.x; fx < b.x + b.width; fx += tileS) {
-      const checker = (Math.floor((fx - b.x) / tileS) + Math.floor((fy - b.y) / tileS)) % 2;
-      ctx.fillStyle = checker ? floorDark : floorLight;
-      ctx.fillRect(fx, fy, tileS, tileS);
+  // 나무 판자 패턴
+  const plankH = 10; // 판자 높이
+  const plankColors = ["#c49670", "#b8885c", "#a87c50", "#c4986e", "#ae8458"];
+  const grainColor = "rgba(80,50,20,0.12)";
+  const gapColor = "rgba(50,30,10,0.35)";
+  const knots: [number, number][] = []; // 옹이 위치
+
+  let plankIdx = 0;
+  for (let py = b.y; py < b.y + b.height; py += plankH) {
+    const rowH = Math.min(plankH, b.y + b.height - py);
+    // 각 줄마다 판자 색상 교차
+    const baseColor = plankColors[plankIdx % plankColors.length];
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(b.x, py, b.width, rowH);
+
+    // 판자 내부 — 나뭇결 (가로 줄)
+    ctx.strokeStyle = grainColor;
+    ctx.lineWidth = 0.5;
+    for (let g = 2; g < rowH - 1; g += 3) {
+      ctx.beginPath();
+      ctx.moveTo(b.x, py + g);
+      // 약간 물결 치는 나뭇결
+      for (let gx = b.x; gx < b.x + b.width; gx += 8) {
+        const wave = Math.sin((gx + plankIdx * 30) * 0.15) * 0.8;
+        ctx.lineTo(gx + 8, py + g + wave);
+      }
+      ctx.stroke();
     }
+
+    // 판자 이음새 (세로 — 줄마다 오프셋)
+    const plankW = 35 + (plankIdx % 3) * 10; // 판자 폭 변형
+    const offset = (plankIdx % 2) * 18;
+    ctx.strokeStyle = gapColor;
+    ctx.lineWidth = 1;
+    for (let sx = b.x + offset + plankW; sx < b.x + b.width; sx += plankW) {
+      ctx.beginPath();
+      ctx.moveTo(sx, py);
+      ctx.lineTo(sx, py + rowH);
+      ctx.stroke();
+    }
+
+    // 옹이 (knots) — 간헐적으로
+    if (plankIdx % 3 === 1) {
+      const knotX = b.x + 20 + (plankIdx * 47) % (b.width - 40);
+      const knotY = py + rowH / 2;
+      knots.push([knotX, knotY]);
+    }
+
+    // 판자 사이 경계선 (가로)
+    ctx.fillStyle = gapColor;
+    ctx.fillRect(b.x, py + rowH - 1, b.width, 1);
+
+    plankIdx++;
   }
-  // 바닥 그리드 선
-  ctx.strokeStyle = shadeColor(floor, -18);
-  ctx.lineWidth = 0.3;
-  for (let fy = b.y; fy < b.y + b.height; fy += tileS) {
-    ctx.beginPath(); ctx.moveTo(b.x, fy); ctx.lineTo(b.x + b.width, fy); ctx.stroke();
-  }
-  for (let fx = b.x; fx < b.x + b.width; fx += tileS) {
-    ctx.beginPath(); ctx.moveTo(fx, b.y); ctx.lineTo(fx, b.y + b.height); ctx.stroke();
-  }
+
+  // 옹이 그리기
+  knots.forEach(([kx, ky]) => {
+    ctx.fillStyle = "rgba(90,55,20,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(kx, ky, 3, 2, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(70,40,15,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(kx, ky, 5, 3.5, 0.3, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // 바닥 전체에 미세한 광택 그라디언트
+  const floorShine = ctx.createLinearGradient(b.x, b.y, b.x + b.width * 0.7, b.y + b.height);
+  floorShine.addColorStop(0, "rgba(255,240,220,0.08)");
+  floorShine.addColorStop(0.5, "rgba(255,255,255,0.03)");
+  floorShine.addColorStop(1, "rgba(0,0,0,0.05)");
+  ctx.fillStyle = floorShine;
+  ctx.fillRect(b.x, b.y, b.width, b.height);
 
   // ── 왼쪽 벽 (Left wall — 입체 사다리꼴) ──
   ctx.fillStyle = wallMid;
