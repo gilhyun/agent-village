@@ -281,8 +281,8 @@ export const VILLAGE_BUILDINGS: Building[] = [
     ],
   },
   {
-    // 마을 광장 — 단순 큰 사각형 (광장은 원래 넓으니까)
-    id: "plaza", name: "마을 광장", emoji: "⛲", x: 580, y: 480, width: 350, height: 270, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
+    // 마을 회관 — 오른쪽에 매점 wing
+    id: "plaza", name: "마을 회관", emoji: "🏛️", x: 480, y: 480, width: 350, height: 270, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
     wings: [
       { dx: 340, dy: 30, w: 100, h: 130 },  // 오른쪽 작은 창고/매점
     ],
