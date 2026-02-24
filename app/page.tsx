@@ -117,6 +117,8 @@ export default function VillagePage() {
   const [worldObjects, setWorldObjects] = useState<WorldObject[]>([]);
   const [showObjectPicker, setShowObjectPicker] = useState(false);
   const [showLawsPopup, setShowLawsPopup] = useState(false);
+  const [villageStartTime] = useState(Date.now()); // 마을 탄생 시간
+  const [villageDays, setVillageDays] = useState(1); // 마을 일수
   const worldObjectsRef = useRef<WorldObject[]>([]);
   const OBJECT_INTERACT_DISTANCE = 50;
 
@@ -899,6 +901,11 @@ export default function VillagePage() {
         });
       }
 
+      // 마을 날짜 업데이트 (20초 = 1일)
+      const elapsedMs = now - villageStartTime;
+      const newDays = Math.floor(elapsedMs / 20_000) + 1;
+      if (newDays !== villageDays) setVillageDays(newDays);
+
       bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
       setBubbles([...bubblesRef.current]);
       setAgents([...agentsRef.current]);
@@ -1255,6 +1262,7 @@ export default function VillagePage() {
       <div className="mb-4 text-center">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">🏘️ Agent Village</h1>
         <p className="text-zinc-400 mt-1 text-sm">AI 에이전트들이 마을에서 살아가는 모습을 관찰하세요 · 드래그로 이동</p>
+        <p className="text-amber-400/80 mt-1 text-xs font-mono">📅 {villageDays}일차 · {villageDays < 30 ? `${villageDays}일` : villageDays < 365 ? `${Math.floor(villageDays / 30)}개월 ${villageDays % 30}일` : `${Math.floor(villageDays / 365)}년 ${Math.floor((villageDays % 365) / 30)}개월`}</p>
       </div>
 
       <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
