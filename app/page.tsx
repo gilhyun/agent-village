@@ -55,6 +55,36 @@ const VIEWPORT_H = 600;
 const TS = TILE_SIZE * TILE_SCALE; // rendered tile size in px
 
 // 코인 포맷 (억/만)
+const DAY_DURATION = 20_000; // 20초 = 1일
+const NIGHT_START = 0.7; // 70% 지점부터 밤 (14초 낮, 6초 밤)
+const DAWN_START = 0.0;  // 0% = 새벽/일출
+const DUSK_START = 0.65; // 65% = 해질녘
+
+type TimeOfDay = "dawn" | "day" | "dusk" | "night";
+
+function getTimeOfDay(startTime: number): { phase: TimeOfDay; progress: number; hourLabel: string } {
+  const elapsed = (Date.now() - startTime) % DAY_DURATION;
+  const progress = elapsed / DAY_DURATION; // 0~1
+  // 시간 매핑: 0=06:00, 0.7=21:00, 1.0=06:00
+  const hour = Math.floor(((progress * 24) + 6) % 24);
+  const minute = Math.floor((((progress * 24) + 6) % 1) * 60);
+  const hourLabel = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+
+  if (progress < 0.08) return { phase: "dawn", progress, hourLabel };
+  if (progress < DUSK_START) return { phase: "day", progress, hourLabel };
+  if (progress < NIGHT_START) return { phase: "dusk", progress, hourLabel };
+  return { phase: "night", progress, hourLabel };
+}
+
+function getOverlayColor(phase: TimeOfDay, progress: number): string {
+  switch (phase) {
+    case "dawn": return `rgba(255, 180, 100, ${0.15 * (1 - progress / 0.08)})`;
+    case "day": return "rgba(0,0,0,0)";
+    case "dusk": return `rgba(255, 100, 50, ${0.2 * ((progress - DUSK_START) / (NIGHT_START - DUSK_START))})`;
+    case "night": return `rgba(10, 10, 40, ${0.4 + 0.15 * Math.min(1, (progress - NIGHT_START) / 0.15)})`;
+  }
+}
+
 function formatCoins(coins: number): string {
   if (coins >= 100_000_000) return `${(coins / 100_000_000).toFixed(1)}억`;
   if (coins >= 10_000) return `${(coins / 10_000).toFixed(0)}만`;
@@ -641,6 +671,15 @@ export default function VillagePage() {
 
       agentsRef.current = agentsRef.current.map((agent) => {
         if (agent.state === "talking") return agent;
+        // 자고 있는 에이전트 아침에 깨우기
+        if (agent.state === "idle") {
+          const timeNow = getTimeOfDay(villageStartTime);
+          if (timeNow.phase === "dawn" || timeNow.phase === "day") {
+            const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
+            return { ...agent, state: "walking" as const, ...next };
+          }
+          return agent; // 아직 밤이면 계속 잠
+        }
         const dx = agent.targetX - agent.x;
         const dy = agent.targetY - agent.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -703,8 +742,31 @@ export default function VillagePage() {
           }
 
           // Arrived at destination — pick new one
-          const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
-          return { ...agent, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
+          const currentTime = getTimeOfDay(villageStartTime);
+          let next;
+          if (currentTime.phase === "night" && agent.homeId) {
+            // 밤에는 80% 확률로 집에 감 (20%는 밤새는 놈 ㅋ)
+            if (agent.destination === agent.homeId) {
+              // 이미 집에 도착 → idle (잠자기)
+              return { ...agent, state: "idle" as const, destination: agent.homeId };
+            }
+            if (Math.random() < 0.8) {
+              const home = VILLAGE_BUILDINGS.find(b => b.id === agent.homeId);
+              if (home) {
+                const hx = home.x + home.width / 2 + (Math.random() - 0.5) * 20;
+                const hy = home.y + home.height / 2 + (Math.random() - 0.5) * 20;
+                next = { targetX: hx, targetY: hy, destination: agent.homeId };
+              } else {
+                next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
+              }
+            } else {
+              next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
+            }
+          } else {
+            // 아침 되면 idle 해제
+            next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
+          }
+          return { ...agent, state: "walking" as const, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
         }
         const speedMult = (getLawEffect(villageLawsRef.current, "speed_bonus") as number) || 1;
         const actualSpeed = agent.speed * speedMult;
@@ -1100,6 +1162,12 @@ export default function VillagePage() {
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
+      // 💤 잠자는 표시
+      if (agent.state === "idle") {
+        ctx.font = `${10 + Math.sin(tick * 0.1) * 2}px sans-serif`;
+        ctx.fillText("💤", agent.x + 10, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 5 + Math.sin(tick * 0.08) * 3);
+      }
+
       // 코인 + 평판 표시
       if (agent.coins !== undefined && !agent.isBaby) {
         ctx.font = "8px sans-serif";
@@ -1190,6 +1258,41 @@ export default function VillagePage() {
 
     ctx.restore();
 
+    // 🌙 낮/밤 오버레이
+    const timeInfo = getTimeOfDay(villageStartTime);
+    const overlayColor = getOverlayColor(timeInfo.phase, timeInfo.progress);
+    if (overlayColor !== "rgba(0,0,0,0)") {
+      ctx.fillStyle = overlayColor;
+      ctx.fillRect(0, 0, VIEWPORT_W, VIEWPORT_H);
+    }
+
+    // 밤에 별 반짝이
+    if (timeInfo.phase === "night") {
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      for (let i = 0; i < 15; i++) {
+        const sx = (Math.sin(i * 73.7 + tick * 0.02) * 0.5 + 0.5) * VIEWPORT_W;
+        const sy = (Math.cos(i * 47.3 + tick * 0.015) * 0.5 + 0.5) * VIEWPORT_H * 0.3;
+        const size = 1 + Math.sin(tick * 0.05 + i) * 0.5;
+        ctx.fillRect(sx, sy, size, size);
+      }
+      // 달
+      ctx.font = "20px sans-serif";
+      ctx.fillText("🌙", VIEWPORT_W - 40, 30);
+    }
+
+    // 새벽 해
+    if (timeInfo.phase === "dawn") {
+      ctx.font = "18px sans-serif";
+      ctx.fillText("🌅", 20, 30);
+    }
+
+    // 시간 표시 (우하단)
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = "right";
+    const timeEmoji = timeInfo.phase === "night" ? "🌙" : timeInfo.phase === "dawn" ? "🌅" : timeInfo.phase === "dusk" ? "🌇" : "☀️";
+    ctx.fillStyle = timeInfo.phase === "night" ? "rgba(200,200,255,0.8)" : "rgba(255,255,255,0.7)";
+    ctx.fillText(`${timeEmoji} ${timeInfo.hourLabel}`, VIEWPORT_W - 8, VIEWPORT_H - 8);
+
     // 축제 이펙트 (화면 가장자리 반짝이)
     if (festivalUntil && Date.now() < festivalUntil) {
       for (let i = 0; i < 8; i++) {
@@ -1262,7 +1365,11 @@ export default function VillagePage() {
       <div className="mb-4 text-center">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">🏘️ Agent Village</h1>
         <p className="text-zinc-400 mt-1 text-sm">AI 에이전트들이 마을에서 살아가는 모습을 관찰하세요 · 드래그로 이동</p>
-        <p className="text-amber-400/80 mt-1 text-xs font-mono">📅 {villageDays}일차 · {villageDays < 30 ? `${villageDays}일` : villageDays < 365 ? `${Math.floor(villageDays / 30)}개월 ${villageDays % 30}일` : `${Math.floor(villageDays / 365)}년 ${Math.floor((villageDays % 365) / 30)}개월`}</p>
+        {(() => {
+          const t = getTimeOfDay(villageStartTime);
+          const emoji = t.phase === "night" ? "🌙" : t.phase === "dawn" ? "🌅" : t.phase === "dusk" ? "🌇" : "☀️";
+          return <p className="text-amber-400/80 mt-1 text-xs font-mono">📅 {villageDays}일차 {emoji} {t.hourLabel}</p>;
+        })()}
       </div>
 
       <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
