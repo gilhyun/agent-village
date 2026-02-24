@@ -66,7 +66,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     emoji: "🧑‍💻",
     color: "#6366f1",
     personality: "호기심 많은 개발자. 항상 새로운 기술에 관심이 많고 열정적이다.",
-    speed: 1.2,
+    speed: 2.4,
     state: "walking",
     talkingTo: null,
     homeId: "house-minsu",
@@ -77,7 +77,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     emoji: "👩‍🎨",
     color: "#ec4899",
     personality: "감성적인 아티스트. 그림 그리기를 좋아하고 철학적인 대화를 즐긴다.",
-    speed: 0.8,
+    speed: 1.8,
     state: "walking",
     talkingTo: null,
     homeId: "house-jieun",
@@ -88,7 +88,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     emoji: "🧑‍🚀",
     color: "#14b8a6",
     personality: "모험을 좋아하는 탐험가. 우주와 미래에 대한 이야기를 좋아한다.",
-    speed: 1.5,
+    speed: 2.8,
     state: "walking",
     talkingTo: null,
     homeId: "house-junho",
@@ -99,7 +99,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     emoji: "👩‍🔬",
     color: "#f59e0b",
     personality: "논리적인 과학자. 데이터와 실험에 기반한 대화를 선호한다.",
-    speed: 1.0,
+    speed: 2.0,
     state: "walking",
     talkingTo: null,
     homeId: "house-hana",
@@ -110,7 +110,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     emoji: "🧑‍🍳",
     color: "#ef4444",
     personality: "유쾌한 셰프. 음식과 맛에 대한 이야기를 사랑하고 사람들을 웃기는 걸 좋아한다.",
-    speed: 1.1,
+    speed: 2.2,
     state: "walking",
     talkingTo: null,
     homeId: "house-taehyun",
@@ -120,7 +120,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
 // Map dimensions
 export const MAP_WIDTH = 1800;
 export const MAP_HEIGHT = 1400;
-export const INTERACTION_DISTANCE = 30; // 진짜 부딪혀야 대화 (캐릭터 반지름 20 × 2 = 40 → 30이면 겹침)
+export const INTERACTION_DISTANCE = 50; // 가까이 오면 대화 시작
 export const BUBBLE_DURATION = 5000; // 5 seconds
 
 // Buildings
@@ -408,7 +408,7 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x"
     emoji: isBoy ? "👦" : "👧",
     color,
     personality: traits.join(". ") + ".",
-    speed: 0.7 + Math.random() * 0.5,
+    speed: 1.5 + Math.random() * 0.8,
     state: "walking",
     talkingTo: null,
     homeId: parentA.homeId, // lives with parents
