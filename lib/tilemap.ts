@@ -3,8 +3,8 @@ import { VILLAGE_BUILDINGS } from "./village";
 
 export const TILE_SIZE = 16;
 export const TILE_SCALE = 2;
-export const TILES_X = 50; // 1600 / 32
-export const TILES_Y = 38;  // 1200 / ~32 (1216 rounded)
+export const TILES_X = 57; // 1800 / 32 ≈ 56.25
+export const TILES_Y = 44;  // 1400 / 32 ≈ 43.75
 
 // Tile types
 export const T = {

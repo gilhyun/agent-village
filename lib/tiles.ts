@@ -393,3 +393,215 @@ function shadeColor(hex: string, amt: number): string {
   b = Math.max(0, Math.min(255, b + amt));
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
+
+// ── Furniture drawing ──
+import type { Furniture, Building } from "./village";
+
+export function drawFurniture(ctx: Ctx, f: Furniture, bx: number, by: number) {
+  const x = bx + f.x;
+  const y = by + f.y;
+
+  switch (f.type) {
+    case "bed":
+      // Frame
+      ctx.fillStyle = "#8b6914";
+      ctx.fillRect(x, y, f.w, f.h);
+      // Mattress
+      ctx.fillStyle = "#e8e0d0";
+      ctx.fillRect(x + 2, y + 2, f.w - 4, f.h - 4);
+      // Pillow
+      ctx.fillStyle = "#f0f0f0";
+      ctx.fillRect(x + 3, y + 3, 12, 8);
+      // Blanket
+      ctx.fillStyle = "#7c9cbf";
+      ctx.fillRect(x + 3, y + 13, f.w - 6, f.h - 16);
+      break;
+
+    case "desk":
+      ctx.fillStyle = "#a0784c";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#b8905c";
+      ctx.fillRect(x + 2, y + 2, f.w - 4, f.h - 4);
+      // Monitor/book on desk
+      ctx.fillStyle = "#333";
+      ctx.fillRect(x + f.w / 2 - 6, y + 3, 12, 9);
+      ctx.fillStyle = "#4af";
+      ctx.fillRect(x + f.w / 2 - 5, y + 4, 10, 7);
+      break;
+
+    case "table":
+      ctx.fillStyle = "#a0784c";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#c0986c";
+      ctx.fillRect(x + 3, y + 3, f.w - 6, f.h - 6);
+      break;
+
+    case "chair":
+      ctx.fillStyle = "#8b6914";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#a07830";
+      ctx.fillRect(x + 2, y + 2, f.w - 4, f.h - 4);
+      break;
+
+    case "bookshelf":
+      ctx.fillStyle = "#6b4226";
+      ctx.fillRect(x, y, f.w, f.h);
+      // Shelves
+      ctx.fillStyle = "#8b6240";
+      ctx.fillRect(x + 1, y + 1, f.w - 2, f.h - 2);
+      // Books (colorful rows)
+      const bookColors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#e67e22"];
+      for (let row = 0; row < 2; row++) {
+        for (let col = 0; col < Math.floor(f.w / 6); col++) {
+          ctx.fillStyle = bookColors[(row * 5 + col) % bookColors.length];
+          ctx.fillRect(x + 3 + col * 6, y + 3 + row * 9, 5, 7);
+        }
+      }
+      break;
+
+    case "stove":
+      ctx.fillStyle = "#555";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#777";
+      ctx.fillRect(x + 2, y + 2, f.w - 4, f.h - 4);
+      // Burners
+      ctx.fillStyle = "#333";
+      ctx.beginPath(); ctx.arc(x + f.w / 3, y + f.h / 2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + (f.w * 2) / 3, y + f.h / 2, 4, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "sofa":
+      ctx.fillStyle = "#8b5a3c";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#c49a6c";
+      ctx.fillRect(x + 3, y + 4, f.w - 6, f.h - 6);
+      // Cushions
+      ctx.fillStyle = "#d4aa7c";
+      ctx.fillRect(x + 5, y + 5, (f.w - 14) / 2, f.h - 8);
+      ctx.fillRect(x + f.w / 2 + 2, y + 5, (f.w - 14) / 2, f.h - 8);
+      break;
+
+    case "plant":
+      // Pot
+      ctx.fillStyle = "#c0643c";
+      ctx.fillRect(x + 2, y + 8, f.w - 4, f.h - 8);
+      // Leaves
+      ctx.fillStyle = "#3a8a2a";
+      ctx.beginPath(); ctx.arc(x + f.w / 2, y + 5, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#4ca338";
+      ctx.beginPath(); ctx.arc(x + f.w / 2 - 3, y + 3, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + f.w / 2 + 3, y + 3, 4, 0, Math.PI * 2); ctx.fill();
+      break;
+
+    case "counter":
+      ctx.fillStyle = "#8b6914";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#d4c4a0";
+      ctx.fillRect(x + 1, y + 1, f.w - 2, 4);
+      break;
+
+    case "fountain":
+      // Basin
+      ctx.fillStyle = "#9ca3af";
+      ctx.beginPath(); ctx.arc(x + f.w / 2, y + f.h / 2, f.w / 2 - 2, 0, Math.PI * 2); ctx.fill();
+      // Water
+      ctx.fillStyle = "#60a5fa";
+      ctx.beginPath(); ctx.arc(x + f.w / 2, y + f.h / 2, f.w / 2 - 6, 0, Math.PI * 2); ctx.fill();
+      // Center pillar
+      ctx.fillStyle = "#d1d5db";
+      ctx.fillRect(x + f.w / 2 - 3, y + f.h / 2 - 8, 6, 12);
+      break;
+
+    case "bench":
+      ctx.fillStyle = "#8b6914";
+      ctx.fillRect(x, y, f.w, f.h);
+      ctx.fillStyle = "#a0784c";
+      ctx.fillRect(x + 2, y + 2, f.w - 4, f.h - 6);
+      // Legs
+      ctx.fillStyle = "#6b4226";
+      ctx.fillRect(x + 3, y + f.h - 3, 4, 3);
+      ctx.fillRect(x + f.w - 7, y + f.h - 3, 4, 3);
+      break;
+
+    case "tree_indoor":
+      // Trunk
+      ctx.fillStyle = "#6b3a1f";
+      ctx.fillRect(x + f.w / 2 - 3, y + f.h / 2, 6, f.h / 2);
+      // Canopy
+      ctx.fillStyle = "#2d6a1e";
+      ctx.beginPath(); ctx.arc(x + f.w / 2, y + f.h / 3, f.w / 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#3a8a2a";
+      ctx.beginPath(); ctx.arc(x + f.w / 2 - 4, y + f.h / 3 - 3, f.w / 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + f.w / 2 + 4, y + f.h / 3 - 3, f.w / 4, 0, Math.PI * 2); ctx.fill();
+      break;
+  }
+}
+
+// ── Building interior rendering ──
+export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
+  const wall = isDark ? "#2a2040" : b.wallColor;
+  const floor = isDark ? "#1a1530" : b.floorColor;
+  const roofC = isDark ? "#3a2060" : b.roofColor;
+  const wallDark = shadeColor(wall, -20);
+
+  // Shadow
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.fillRect(b.x + 4, b.y + 4, b.width, b.height);
+
+  // Floor
+  ctx.fillStyle = floor;
+  ctx.fillRect(b.x, b.y, b.width, b.height);
+
+  // Floor pattern (tile grid)
+  ctx.strokeStyle = shadeColor(floor, -15);
+  ctx.lineWidth = 0.5;
+  for (let fy = b.y; fy < b.y + b.height; fy += 16) {
+    ctx.beginPath(); ctx.moveTo(b.x, fy); ctx.lineTo(b.x + b.width, fy); ctx.stroke();
+  }
+  for (let fx = b.x; fx < b.x + b.width; fx += 16) {
+    ctx.beginPath(); ctx.moveTo(fx, b.y); ctx.lineTo(fx, b.y + b.height); ctx.stroke();
+  }
+
+  // Walls (top + sides as thick borders)
+  ctx.fillStyle = wall;
+  ctx.fillRect(b.x, b.y, b.width, 8); // top wall
+  ctx.fillRect(b.x, b.y, 6, b.height); // left wall
+  ctx.fillRect(b.x + b.width - 6, b.y, 6, b.height); // right wall
+  // Bottom wall with door gap
+  const doorGap = 30;
+  const doorX = b.x + b.width / 2 - doorGap / 2;
+  ctx.fillRect(b.x, b.y + b.height - 6, doorX - b.x, 6);
+  ctx.fillRect(doorX + doorGap, b.y + b.height - 6, b.x + b.width - doorX - doorGap, 6);
+
+  // Wall border
+  ctx.strokeStyle = wallDark;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+  // Door opening indicator
+  ctx.fillStyle = shadeColor(floor, 10);
+  ctx.fillRect(doorX, b.y + b.height - 6, doorGap, 6);
+
+  // Furniture
+  if (!isDark) {
+    b.furniture.forEach(f => drawFurniture(ctx, f, b.x, b.y));
+  }
+
+  // Roof label (floating above)
+  ctx.fillStyle = roofC;
+  ctx.beginPath();
+  ctx.moveTo(b.x + b.width / 2 - 30, b.y - 2);
+  ctx.lineTo(b.x + b.width / 2, b.y - 16);
+  ctx.lineTo(b.x + b.width / 2 + 30, b.y - 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Name label
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 3;
+  ctx.fillText(b.name, b.x + b.width / 2, b.y - 18);
+  ctx.shadowBlur = 0;
+}

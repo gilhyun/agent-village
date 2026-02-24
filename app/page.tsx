@@ -37,7 +37,7 @@ import {
 import {
   drawGrassTile, drawDirtPathTile, drawWaterTile, drawStoneTile,
   drawTreeTile, drawFlowerTile, drawBushTile, drawRockTile,
-  drawHouse,
+  drawBuildingInterior,
 } from "@/lib/tiles";
 import { TILEMAP, TILE_SIZE, TILE_SCALE, TILES_X, TILES_Y, T, DECORATIONS } from "@/lib/tilemap";
 
@@ -437,25 +437,13 @@ export default function VillagePage() {
       else if (d.type === "rock") drawRockTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
     });
 
-    // Buildings
+    // Buildings (interior view)
     VILLAGE_BUILDINGS.forEach((b) => {
       // Skip if outside viewport
       if (b.x + b.width + 20 < cameraX || b.x - 20 > cameraX + VIEWPORT_W) return;
       if (b.y + b.height + 20 < cameraY || b.y - 30 > cameraY + VIEWPORT_H) return;
 
-      const roof = godEffect ? "#3a2060" : b.roofColor;
-      const wall = godEffect ? "#2a2040" : b.wallColor;
-
-      drawHouse(ctx, b.x, b.y, TILE_SCALE, roof, wall, TS);
-
-      // Name label
-      ctx.font = "bold 10px sans-serif";
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 3;
-      ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height + 14);
-      ctx.shadowBlur = 0;
+      drawBuildingInterior(ctx, b, godEffect);
     });
 
     // World objects

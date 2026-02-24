@@ -118,8 +118,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
 ];
 
 // Map dimensions
-export const MAP_WIDTH = 1600;
-export const MAP_HEIGHT = 1200;
+export const MAP_WIDTH = 1800;
+export const MAP_HEIGHT = 1400;
 export const INTERACTION_DISTANCE = 30; // 진짜 부딪혀야 대화 (캐릭터 반지름 20 × 2 = 40 → 30이면 겹침)
 export const BUBBLE_DURATION = 5000; // 5 seconds
 
@@ -134,18 +134,111 @@ export interface Building {
   height: number;
   roofColor: string;
   wallColor: string;
+  floorColor: string; // interior floor color
+  furniture: Furniture[]; // interior items
+}
+
+export interface Furniture {
+  type: "bed" | "desk" | "table" | "chair" | "bookshelf" | "stove" | "sofa" | "plant" | "counter" | "fountain" | "bench" | "tree_indoor";
+  x: number; // relative to building x
+  y: number; // relative to building y
+  w: number;
+  h: number;
 }
 
 export const VILLAGE_BUILDINGS: Building[] = [
-  { id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 150, y: 150, width: 80, height: 60, roofColor: "#6366f1", wallColor: "#c7d2fe" },
-  { id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1350, y: 150, width: 80, height: 60, roofColor: "#ec4899", wallColor: "#fbcfe8" },
-  { id: "house-junho", name: "준호의 집", emoji: "🏠", x: 150, y: 950, width: 80, height: 60, roofColor: "#14b8a6", wallColor: "#ccfbf1" },
-  { id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1350, y: 950, width: 80, height: 60, roofColor: "#f59e0b", wallColor: "#fef3c7" },
-  { id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 750, y: 100, width: 80, height: 60, roofColor: "#ef4444", wallColor: "#fecaca" },
-  { id: "cafe", name: "마을 카페", emoji: "☕", x: 500, y: 500, width: 100, height: 70, roofColor: "#92400e", wallColor: "#fde68a" },
-  { id: "library", name: "도서관", emoji: "📚", x: 1000, y: 500, width: 100, height: 70, roofColor: "#166534", wallColor: "#dcfce7" },
-  { id: "plaza", name: "마을 광장", emoji: "⛲", x: 720, y: 550, width: 160, height: 120, roofColor: "#6b7280", wallColor: "#e5e7eb" },
-  { id: "park", name: "공원", emoji: "🌳", x: 350, y: 850, width: 120, height: 80, roofColor: "#15803d", wallColor: "#86efac" },
+  {
+    id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 80, y: 80, width: 160, height: 120, roofColor: "#6366f1", wallColor: "#c7d2fe", floorColor: "#e8dcc8",
+    furniture: [
+      { type: "bed", x: 10, y: 40, w: 40, h: 30 },
+      { type: "desk", x: 110, y: 40, w: 40, h: 25 },
+      { type: "chair", x: 120, y: 70, w: 15, h: 15 },
+      { type: "plant", x: 140, y: 15, w: 15, h: 15 },
+    ],
+  },
+  {
+    id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1300, y: 80, width: 160, height: 120, roofColor: "#ec4899", wallColor: "#fbcfe8", floorColor: "#f0e0e8",
+    furniture: [
+      { type: "bed", x: 110, y: 40, w: 40, h: 30 },
+      { type: "desk", x: 10, y: 40, w: 40, h: 25 },
+      { type: "plant", x: 10, y: 15, w: 15, h: 15 },
+      { type: "sofa", x: 60, y: 80, w: 45, h: 20 },
+    ],
+  },
+  {
+    id: "house-junho", name: "준호의 집", emoji: "🏠", x: 80, y: 900, width: 160, height: 120, roofColor: "#14b8a6", wallColor: "#ccfbf1", floorColor: "#d8e8e0",
+    furniture: [
+      { type: "bed", x: 10, y: 40, w: 40, h: 30 },
+      { type: "bookshelf", x: 110, y: 15, w: 40, h: 20 },
+      { type: "desk", x: 110, y: 50, w: 40, h: 25 },
+      { type: "plant", x: 60, y: 15, w: 15, h: 15 },
+    ],
+  },
+  {
+    id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1300, y: 900, width: 160, height: 120, roofColor: "#f59e0b", wallColor: "#fef3c7", floorColor: "#f0e8d0",
+    furniture: [
+      { type: "bed", x: 110, y: 40, w: 40, h: 30 },
+      { type: "desk", x: 10, y: 40, w: 40, h: 25 },
+      { type: "bookshelf", x: 10, y: 15, w: 40, h: 20 },
+      { type: "plant", x: 140, y: 15, w: 15, h: 15 },
+    ],
+  },
+  {
+    id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 700, y: 50, width: 160, height: 120, roofColor: "#ef4444", wallColor: "#fecaca", floorColor: "#f0d8c8",
+    furniture: [
+      { type: "bed", x: 10, y: 40, w: 40, h: 30 },
+      { type: "stove", x: 110, y: 15, w: 30, h: 25 },
+      { type: "counter", x: 110, y: 50, w: 40, h: 20 },
+      { type: "table", x: 55, y: 75, w: 50, h: 30 },
+    ],
+  },
+  {
+    id: "cafe", name: "마을 카페", emoji: "☕", x: 400, y: 420, width: 200, height: 150, roofColor: "#92400e", wallColor: "#fde68a", floorColor: "#f5e6c8",
+    furniture: [
+      { type: "counter", x: 10, y: 15, w: 60, h: 25 },
+      { type: "stove", x: 10, y: 50, w: 30, h: 25 },
+      { type: "table", x: 100, y: 30, w: 40, h: 30 },
+      { type: "chair", x: 90, y: 65, w: 15, h: 15 },
+      { type: "chair", x: 130, y: 65, w: 15, h: 15 },
+      { type: "table", x: 100, y: 90, w: 40, h: 30 },
+      { type: "plant", x: 170, y: 15, w: 15, h: 15 },
+    ],
+  },
+  {
+    id: "library", name: "도서관", emoji: "📚", x: 1000, y: 420, width: 200, height: 150, roofColor: "#166534", wallColor: "#dcfce7", floorColor: "#e0d8c8",
+    furniture: [
+      { type: "bookshelf", x: 10, y: 15, w: 50, h: 20 },
+      { type: "bookshelf", x: 70, y: 15, w: 50, h: 20 },
+      { type: "bookshelf", x: 130, y: 15, w: 50, h: 20 },
+      { type: "desk", x: 30, y: 60, w: 50, h: 25 },
+      { type: "desk", x: 110, y: 60, w: 50, h: 25 },
+      { type: "chair", x: 45, y: 90, w: 15, h: 15 },
+      { type: "chair", x: 125, y: 90, w: 15, h: 15 },
+      { type: "plant", x: 170, y: 120, w: 15, h: 15 },
+    ],
+  },
+  {
+    id: "plaza", name: "마을 광장", emoji: "⛲", x: 650, y: 500, width: 240, height: 180, roofColor: "#6b7280", wallColor: "#e5e7eb", floorColor: "#d0ccc4",
+    furniture: [
+      { type: "fountain", x: 90, y: 60, w: 60, h: 60 },
+      { type: "bench", x: 15, y: 40, w: 40, h: 15 },
+      { type: "bench", x: 185, y: 40, w: 40, h: 15 },
+      { type: "bench", x: 15, y: 130, w: 40, h: 15 },
+      { type: "bench", x: 185, y: 130, w: 40, h: 15 },
+    ],
+  },
+  {
+    id: "park", name: "공원", emoji: "🌳", x: 300, y: 800, width: 200, height: 160, roofColor: "#15803d", wallColor: "#86efac", floorColor: "#90c878",
+    furniture: [
+      { type: "tree_indoor", x: 30, y: 30, w: 30, h: 30 },
+      { type: "tree_indoor", x: 140, y: 30, w: 30, h: 30 },
+      { type: "bench", x: 70, y: 50, w: 50, h: 15 },
+      { type: "bench", x: 70, y: 110, w: 50, h: 15 },
+      { type: "fountain", x: 75, y: 70, w: 40, h: 40 },
+      { type: "tree_indoor", x: 30, y: 110, w: 30, h: 30 },
+      { type: "tree_indoor", x: 140, y: 110, w: 30, h: 30 },
+    ],
+  },
 ];
 
 // Decorations
@@ -181,6 +274,16 @@ export function randomPosition() {
   };
 }
 
+// Get a random walkable point inside a building
+function insideBuilding(b: Building): { x: number; y: number } {
+  // Avoid walls (6px border) and furniture roughly
+  const margin = 15;
+  return {
+    x: b.x + margin + Math.random() * (b.width - margin * 2),
+    y: b.y + margin + Math.random() * (b.height - margin * 2),
+  };
+}
+
 // Pick a random destination building for an agent
 // partnerHomeId: 연인/부부의 집 (있으면 목적지 후보에 포함)
 export function pickDestination(agentId: string, homeId: string | null, currentDest: string | null, partnerHomeId?: string | null): { targetX: number; targetY: number; destination: string } {
@@ -190,11 +293,8 @@ export function pickDestination(agentId: string, homeId: string | null, currentD
   if (homeId && Math.random() < 0.3) {
     const home = VILLAGE_BUILDINGS.find(b => b.id === homeId);
     if (home && home.id !== currentDest) {
-      return {
-        targetX: home.x + home.width / 2 + (Math.random() - 0.5) * 30,
-        targetY: home.y + home.height + 15 + Math.random() * 20,
-        destination: home.id,
-      };
+      const pos = insideBuilding(home);
+      return { targetX: pos.x, targetY: pos.y, destination: home.id };
     }
   }
 
@@ -202,21 +302,15 @@ export function pickDestination(agentId: string, homeId: string | null, currentD
   if (partnerHomeId && partnerHomeId !== homeId && Math.random() < 0.2) {
     const partnerHome = VILLAGE_BUILDINGS.find(b => b.id === partnerHomeId);
     if (partnerHome && partnerHome.id !== currentDest) {
-      return {
-        targetX: partnerHome.x + partnerHome.width / 2 + (Math.random() - 0.5) * 30,
-        targetY: partnerHome.y + partnerHome.height + 15 + Math.random() * 20,
-        destination: partnerHome.id,
-      };
+      const pos = insideBuilding(partnerHome);
+      return { targetX: pos.x, targetY: pos.y, destination: partnerHome.id };
     }
   }
 
   // Random building
   const building = candidates[Math.floor(Math.random() * candidates.length)];
-  return {
-    targetX: building.x + building.width / 2 + (Math.random() - 0.5) * 30,
-    targetY: building.y + building.height + 15 + Math.random() * 20,
-    destination: building.id,
-  };
+  const pos = insideBuilding(building);
+  return { targetX: pos.x, targetY: pos.y, destination: building.id };
 }
 
 // Get building name by id
