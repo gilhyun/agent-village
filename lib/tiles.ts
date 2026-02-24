@@ -727,27 +727,37 @@ function drawRoom(
   ctx.fillStyle = wallMid;
   ctx.fillRect(rx, backY, rw, WALL_H);
 
-  // 벽돌 패턴 (가로 줄 + 오프셋 세로)
-  const brickH = 6;
-  const brickW = 14;
-  const mortarColor = shadeColor(wall, -12);
-  ctx.strokeStyle = mortarColor;
-  ctx.lineWidth = 0.6;
-  for (let row = 0; row < Math.ceil(WALL_H / brickH); row++) {
-    const by = backY + row * brickH;
-    if (by >= ry) break;
-    // 가로 줄
-    ctx.beginPath(); ctx.moveTo(rx, by); ctx.lineTo(rx + rw, by); ctx.stroke();
-    // 세로 줄 (오프셋)
-    const offset = (row % 2) * (brickW / 2);
-    for (let bx = rx + offset; bx < rx + rw; bx += brickW) {
-      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by + brickH); ctx.stroke();
+  // 나무 판자 벽 패턴 (세로 판자)
+  const wallPlankW = 10;
+  const wallPlankColors = [wallMid, shadeColor(wall, -8), shadeColor(wall, -4), wallMid, shadeColor(wall, -6)];
+  const wallGrain = shadeColor(wall, -15);
+  const wallGap = shadeColor(wall, -22);
+
+  let wpIdx = 0;
+  for (let wpx = rx; wpx < rx + rw; wpx += wallPlankW) {
+    const pw = Math.min(wallPlankW, rx + rw - wpx);
+    // 판자 색상 교차
+    ctx.fillStyle = wallPlankColors[wpIdx % wallPlankColors.length];
+    ctx.fillRect(wpx, backY, pw, WALL_H);
+
+    // 나뭇결 (세로 줄)
+    ctx.strokeStyle = wallGrain;
+    ctx.lineWidth = 0.3;
+    for (let g = 2; g < pw - 1; g += 3) {
+      ctx.beginPath();
+      ctx.moveTo(wpx + g, backY);
+      for (let gy = backY; gy < ry; gy += 5) {
+        const wave = Math.sin((gy + wpIdx * 15) * 0.2) * 0.4;
+        ctx.lineTo(wpx + g + wave, gy + 5);
+      }
+      ctx.stroke();
     }
-    // 벽돌 색상 변화 (미묘하게)
-    if (row % 3 === 0) {
-      ctx.fillStyle = "rgba(0,0,0,0.03)";
-      ctx.fillRect(rx, by, rw, brickH);
-    }
+
+    // 판자 이음새 (세로 갭)
+    ctx.fillStyle = wallGap;
+    ctx.fillRect(wpx + pw - 0.8, backY, 0.8, WALL_H);
+
+    wpIdx++;
   }
 
   // 벽 상단 처마 (cornice)
@@ -847,13 +857,31 @@ function drawRoom(
   ctx.fillStyle = floorShine;
   ctx.fillRect(rx, ry, rw, rh);
 
-  // ── 좌벽 (입체 + 텍스처) ──
-  // 벽 면
+  // ── 좌벽 (나무 판자 + 입체) ──
+  // 벽 면 — 세로 판자
   ctx.fillStyle = shadeColor(wall, -3);
   ctx.fillRect(rx, backY, SIDE_W, WALL_H);
-  // 바닥 부분 벽
+  // 좌벽 나뭇결 (세로)
+  ctx.strokeStyle = shadeColor(wall, -18);
+  ctx.lineWidth = 0.3;
+  for (let g = 2; g < SIDE_W - 1; g += 3) {
+    ctx.beginPath();
+    ctx.moveTo(rx + g, backY);
+    for (let gy = backY; gy < ry; gy += 5) {
+      ctx.lineTo(rx + g + Math.sin(gy * 0.2) * 0.3, gy + 5);
+    }
+    ctx.stroke();
+  }
+  // 바닥 부분 벽 — 나무 판자 (가로)
+  const leftWallBase = shadeColor(wall, -8);
+  for (let lpy = ry; lpy < ry + rh; lpy += 8) {
+    const lh = Math.min(8, ry + rh - lpy);
+    ctx.fillStyle = (Math.floor((lpy - ry) / 8) % 2 === 0) ? leftWallBase : shadeColor(wall, -12);
+    ctx.fillRect(rx, lpy, SIDE_W, lh);
+  }
+  // 그림자 그라디언트
   const lGr = ctx.createLinearGradient(rx, ry, rx + SIDE_W, ry);
-  lGr.addColorStop(0, shadeColor(wall, -20));
+  lGr.addColorStop(0, "rgba(0,0,0,0.1)");
   lGr.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = lGr;
   ctx.fillRect(rx, ry, SIDE_W, rh);
@@ -865,12 +893,30 @@ function drawRoom(
   ctx.fillStyle = shadeColor(wall, -15);
   ctx.fillRect(rx + SIDE_W - 2, ry, 2, rh);
 
-  // ── 우벽 ──
+  // ── 우벽 (나무 판자 + 어두운 면) ──
   ctx.fillStyle = shadeColor(wall, -18);
   ctx.fillRect(rx + rw - SIDE_W, backY, SIDE_W, WALL_H);
+  // 우벽 나뭇결
+  ctx.strokeStyle = shadeColor(wall, -28);
+  ctx.lineWidth = 0.3;
+  for (let g = 2; g < SIDE_W - 1; g += 3) {
+    ctx.beginPath();
+    ctx.moveTo(rx + rw - SIDE_W + g, backY);
+    for (let gy = backY; gy < ry; gy += 5) {
+      ctx.lineTo(rx + rw - SIDE_W + g + Math.sin(gy * 0.2) * 0.3, gy + 5);
+    }
+    ctx.stroke();
+  }
+  // 바닥 부분 — 나무 판자 (가로, 어두운)
+  const rightWallBase = shadeColor(wall, -15);
+  for (let rpy = ry; rpy < ry + rh; rpy += 8) {
+    const rh2 = Math.min(8, ry + rh - rpy);
+    ctx.fillStyle = (Math.floor((rpy - ry) / 8) % 2 === 0) ? rightWallBase : shadeColor(wall, -20);
+    ctx.fillRect(rx + rw - SIDE_W, rpy, SIDE_W, rh2);
+  }
   const rGr = ctx.createLinearGradient(rx + rw - SIDE_W, ry, rx + rw, ry);
   rGr.addColorStop(0, "rgba(0,0,0,0)");
-  rGr.addColorStop(1, shadeColor(wall, -25));
+  rGr.addColorStop(1, "rgba(0,0,0,0.12)");
   ctx.fillStyle = rGr;
   ctx.fillRect(rx + rw - SIDE_W, ry, SIDE_W, rh);
   ctx.strokeStyle = shadeColor(wall, -25);
@@ -882,15 +928,29 @@ function drawRoom(
   // ── 앞벽 (문 포함, 더 두껍게) ──
   if (hasDoor) {
     const doorX = rx + rw / 2 - doorGap / 2;
-    // 앞벽 양쪽
-    ctx.fillStyle = wall;
-    ctx.fillRect(rx, ry + rh, doorX - rx, BOTTOM_H);
-    ctx.fillRect(doorX + doorGap, ry + rh, rx + rw - doorX - doorGap, BOTTOM_H);
-    // 벽돌 패턴 (앞벽에도)
-    ctx.strokeStyle = mortarColor;
-    ctx.lineWidth = 0.3;
-    ctx.beginPath(); ctx.moveTo(rx, ry + rh + 3); ctx.lineTo(doorX, ry + rh + 3); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(doorX + doorGap, ry + rh + 3); ctx.lineTo(rx + rw, ry + rh + 3); ctx.stroke();
+    // 앞벽 양쪽 — 나무 판자
+    const fwColors = [shadeColor(wall, -5), shadeColor(wall, -10)];
+    // 왼쪽
+    for (let fwx = rx; fwx < doorX; fwx += 8) {
+      const fw = Math.min(8, doorX - fwx);
+      ctx.fillStyle = fwColors[Math.floor((fwx - rx) / 8) % 2];
+      ctx.fillRect(fwx, ry + rh, fw, BOTTOM_H);
+    }
+    // 오른쪽
+    for (let fwx = doorX + doorGap; fwx < rx + rw; fwx += 8) {
+      const fw = Math.min(8, rx + rw - fwx);
+      ctx.fillStyle = fwColors[Math.floor((fwx - rx) / 8) % 2];
+      ctx.fillRect(fwx, ry + rh, fw, BOTTOM_H);
+    }
+    // 나무 이음새
+    ctx.strokeStyle = shadeColor(wall, -22);
+    ctx.lineWidth = 0.5;
+    for (let fwx = rx + 8; fwx < doorX; fwx += 8) {
+      ctx.beginPath(); ctx.moveTo(fwx, ry + rh); ctx.lineTo(fwx, ry + rh + BOTTOM_H); ctx.stroke();
+    }
+    for (let fwx = doorX + doorGap + 8; fwx < rx + rw; fwx += 8) {
+      ctx.beginPath(); ctx.moveTo(fwx, ry + rh); ctx.lineTo(fwx, ry + rh + BOTTOM_H); ctx.stroke();
+    }
     // 문 — 나무문 느낌
     const doorGr = ctx.createLinearGradient(doorX, ry + rh, doorX + doorGap, ry + rh);
     doorGr.addColorStop(0, "#8a6020");
@@ -912,11 +972,18 @@ function drawRoom(
     ctx.fillStyle = "#999";
     ctx.fillRect(doorX - 4, ry + rh + BOTTOM_H + 3, doorGap + 8, 2);
   } else {
-    ctx.fillStyle = wall;
-    ctx.fillRect(rx, ry + rh, rw, BOTTOM_H);
-    ctx.strokeStyle = mortarColor;
-    ctx.lineWidth = 0.3;
-    ctx.beginPath(); ctx.moveTo(rx, ry + rh + 3); ctx.lineTo(rx + rw, ry + rh + 3); ctx.stroke();
+    // 문 없는 앞벽 — 나무 판자
+    const fwColors2 = [shadeColor(wall, -5), shadeColor(wall, -10)];
+    for (let fwx = rx; fwx < rx + rw; fwx += 8) {
+      const fw = Math.min(8, rx + rw - fwx);
+      ctx.fillStyle = fwColors2[Math.floor((fwx - rx) / 8) % 2];
+      ctx.fillRect(fwx, ry + rh, fw, BOTTOM_H);
+    }
+    ctx.strokeStyle = shadeColor(wall, -22);
+    ctx.lineWidth = 0.5;
+    for (let fwx = rx + 8; fwx < rx + rw; fwx += 8) {
+      ctx.beginPath(); ctx.moveTo(fwx, ry + rh); ctx.lineTo(fwx, ry + rh + BOTTOM_H); ctx.stroke();
+    }
   }
   // 앞벽 상단 하이라이트
   ctx.fillStyle = wallLight;
