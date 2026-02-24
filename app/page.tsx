@@ -265,6 +265,47 @@ export default function VillagePage() {
     return null;
   }, []);
 
+  // 법률 적용 함수
+  const applyLaw = useCallback((law: any, proposedBy: string, participantIds: Set<string>, groupAgents: Agent[]) => {
+    // 같은 타입의 기존 법률 교체
+    const filtered = villageLawsRef.current.filter(l => l.effect.type !== law.effect.type);
+    const newLaw: VillageLaw = {
+      id: `law-${Date.now()}`,
+      name: law.name,
+      emoji: law.emoji,
+      description: law.description,
+      effect: law.effect,
+      passedAt: Date.now(),
+      proposedBy,
+    };
+    villageLawsRef.current = [...filtered, newLaw];
+    setVillageLaws([...villageLawsRef.current]);
+    setConversationLog(prev => [`✅ "${law.emoji} ${law.name}" 법률 제정! ${law.description}`, ...prev].slice(0, 50));
+
+    // 참가자 평판 +5
+    agentsRef.current = agentsRef.current.map(ag => {
+      if (participantIds.has(ag.id)) return { ...ag, reputation: Math.min(100, ag.reputation + 5) };
+      return ag;
+    });
+
+    // 축제 효과
+    if (law.effect.type === "festival") {
+      setFestivalUntil(Date.now() + law.effect.duration);
+      setConversationLog(prev => [`🎊🎉 마을 축제가 시작됩니다!! 🎉🎊`, ...prev].slice(0, 50));
+    }
+
+    // 슬로건
+    if (law.effect.type === "slogan" && 'text' in law.effect) {
+      setVillageSlogan(law.effect.text);
+    }
+
+    // 말풍선
+    groupAgents.forEach(ag => {
+      bubblesRef.current = [...bubblesRef.current, { id: `law-${Date.now()}-${ag.id}`, agentId: ag.id, text: `${law.emoji} 법률 제정!`, timestamp: Date.now(), duration: 4000 }];
+    });
+    setBubbles([...bubblesRef.current]);
+  }, []);
+
   // Request group conversation (3+ agents in same building)
   const requestGroupChat = useCallback(async (groupAgents: Agent[], buildingId: string, buildingName: string) => {
     if (pendingGroupChatRef.current.has(buildingId)) return;
@@ -316,57 +357,58 @@ export default function VillagePage() {
 
         const totalDuration = data.messages.length * 2500 + BUBBLE_DURATION;
 
-        // 투표 + 법률 처리
+        // 법안 상정 → 이장 승인 시스템
         if (data.proposedLaw) {
           const law = data.proposedLaw;
           const voteDelay = totalDuration - 3000;
           setTimeout(() => {
-            // 투표 결과 표시
+            // 토론에서 법안 상정
             setConversationLog(prev => [
-              `🗳️ 투표: "${law.emoji} ${law.name}" — 찬성 ${law.yesCount} / 반대 ${law.noCount}`,
+              `📋 법안 상정: "${law.emoji} ${law.name}" — ${law.description}`,
               ...prev
             ].slice(0, 50));
 
-            if (law.passed) {
-              const newLaw: VillageLaw = {
-                id: `law-${Date.now()}`,
-                name: law.name,
-                emoji: law.emoji,
-                description: law.description,
-                effect: law.effect,
-                passedAt: Date.now(),
-                proposedBy: groupAgents[0].name,
-              };
-              villageLawsRef.current = [...villageLawsRef.current, newLaw];
-              setVillageLaws([...villageLawsRef.current]);
-              setConversationLog(prev => [`✅ "${law.emoji} ${law.name}" 법안 통과! ${law.description}`, ...prev].slice(0, 50));
+            // 이장 확인
+            const mayor = agentsRef.current.find(a => a.isMayor);
+            const mayorInGroup = mayor && participantIds.has(mayor.id);
 
-              // 참가자 평판 +5 (토론 참여 보너스)
-              agentsRef.current = agentsRef.current.map(ag => {
-                if (participantIds.has(ag.id)) {
-                  return { ...ag, reputation: Math.min(100, ag.reputation + 5) };
-                }
-                return ag;
-              });
-
-              // 축제 효과 처리
-              if (law.effect.type === "festival") {
-                setFestivalUntil(Date.now() + law.effect.duration);
-                setConversationLog(prev => [`🎊🎉 마을 축제가 시작됩니다!! 🎉🎊`, ...prev].slice(0, 50));
+            if (!mayor) {
+              // 이장 없으면 참가자 투표로 결정
+              setConversationLog(prev => [`🗳️ 이장 부재 — 참가자 투표: 찬성 ${law.yesCount} / 반대 ${law.noCount}`, ...prev].slice(0, 50));
+              if (law.passed) {
+                applyLaw(law, groupAgents[0].name, participantIds, groupAgents);
+              } else {
+                setConversationLog(prev => [`❌ "${law.emoji} ${law.name}" 부결 (투표)`, ...prev].slice(0, 50));
               }
-
-              // 슬로건이면 표시
-              if (law.effect.type === "slogan" && 'text' in law.effect) {
-                setVillageSlogan(law.effect.text);
+            } else if (mayorInGroup) {
+              // 이장이 토론에 참석 → 바로 승인/거부
+              const mayorApproves = mayor.reputation >= 30 ? Math.random() < 0.7 : Math.random() < 0.4;
+              if (mayorApproves) {
+                setConversationLog(prev => [`🏛️ ${mayor.emoji} ${mayor.name} 이장이 "${law.emoji} ${law.name}" 승인!`, ...prev].slice(0, 50));
+                bubblesRef.current = [...bubblesRef.current, { id: `mayor-ok-${Date.now()}`, agentId: mayor.id, text: "🏛️ 승인합니다!", timestamp: Date.now(), duration: 5000 }];
+                setBubbles([...bubblesRef.current]);
+                applyLaw(law, mayor.name, participantIds, groupAgents);
+              } else {
+                setConversationLog(prev => [`🏛️ ${mayor.emoji} ${mayor.name} 이장이 "${law.emoji} ${law.name}" 거부!`, ...prev].slice(0, 50));
+                bubblesRef.current = [...bubblesRef.current, { id: `mayor-no-${Date.now()}`, agentId: mayor.id, text: "🏛️ 반대입니다!", timestamp: Date.now(), duration: 5000 }];
+                setBubbles([...bubblesRef.current]);
+                // 이장 거부 시 평판 살짝 하락
+                agentsRef.current = agentsRef.current.map(ag => ag.id === mayor.id ? { ...ag, reputation: Math.max(0, ag.reputation - 2) } : ag);
               }
-
-              // 말풍선
-              groupAgents.forEach(ag => {
-                bubblesRef.current = [...bubblesRef.current, { id: `vote-${Date.now()}-${ag.id}`, agentId: ag.id, text: `${law.emoji} 통과!`, timestamp: Date.now(), duration: 4000 }];
-              });
-              setBubbles([...bubblesRef.current]);
             } else {
-              setConversationLog(prev => [`❌ "${law.emoji} ${law.name}" 법안 부결...`, ...prev].slice(0, 50));
+              // 이장이 토론에 불참 → 대기 후 이장에게 전달 (자동 승인 50%)
+              setConversationLog(prev => [`📨 "${law.emoji} ${law.name}" 법안을 ${mayor.emoji} ${mayor.name} 이장에게 전달...`, ...prev].slice(0, 50));
+              setTimeout(() => {
+                const mayorNow = agentsRef.current.find(a => a.isMayor);
+                if (mayorNow && Math.random() < 0.5) {
+                  setConversationLog(prev => [`🏛️ ${mayorNow.emoji} ${mayorNow.name} 이장이 "${law.emoji} ${law.name}" 승인!`, ...prev].slice(0, 50));
+                  bubblesRef.current = [...bubblesRef.current, { id: `mayor-late-${Date.now()}`, agentId: mayorNow.id, text: "🏛️ 검토 후 승인!", timestamp: Date.now(), duration: 5000 }];
+                  setBubbles([...bubblesRef.current]);
+                  applyLaw(law, mayorNow.name, participantIds, groupAgents);
+                } else {
+                  setConversationLog(prev => [`❌ 이장이 "${law.emoji} ${law.name}" 보류/거부`, ...prev].slice(0, 50));
+                }
+              }, 5000);
             }
           }, Math.max(0, voteDelay));
         }
@@ -1198,16 +1240,22 @@ export default function VillagePage() {
             {/* 이장 */}
             {(() => { const mayor = agents.find(a => a.isMayor); return mayor ? <div className="text-xs text-amber-300 mb-2">🏛️ 이장: {mayor.emoji} {mayor.name} (평판 {mayor.reputation})</div> : <div className="text-xs text-zinc-600 italic mb-2">이장 미선출</div>; })()}
             {/* 법률 목록 */}
-            {villageLaws.length > 0 && (
-              <div className="space-y-1 max-h-[60px] overflow-y-auto">
-                {villageLaws.slice(-5).map((law) => (
-                  <div key={law.id} className="text-xs text-emerald-400 border-l-2 border-emerald-600 pl-2">
-                    {law.emoji} {law.name}
+            {villageLaws.length > 0 ? (
+              <div className="space-y-1.5 max-h-[80px] overflow-y-auto mb-2">
+                <div className="text-xs text-emerald-500 font-bold mb-1">📜 제정된 법률 ({villageLaws.length}개)</div>
+                {villageLaws.map((law) => (
+                  <div key={law.id} className="text-xs bg-emerald-950/30 border border-emerald-800/30 rounded px-2 py-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 font-bold">{law.emoji} {law.name}</span>
+                      <span className="text-zinc-500 text-[10px]">by {law.proposedBy}</span>
+                    </div>
+                    <div className="text-emerald-600 text-[10px]">{law.description}</div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="text-xs text-zinc-600 italic mb-2">📜 제정된 법률이 없습니다</div>
             )}
-            {villageLaws.length === 0 && <div className="text-xs text-zinc-600 italic">제정된 법률이 없습니다</div>}
             {/* 주민 평판 */}
             <div className="mt-2 space-y-0.5 max-h-[60px] overflow-y-auto">
               {agents.filter(a => !a.isBaby).sort((a, b) => b.reputation - a.reputation).map(a => (
