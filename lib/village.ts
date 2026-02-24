@@ -282,34 +282,45 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 마을 광장 — 단순 큰 사각형 (광장은 원래 넓으니까)
-    id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 500, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
+    id: "plaza", name: "마을 광장", emoji: "⛲", x: 580, y: 480, width: 350, height: 270, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
+    wings: [
+      { dx: 340, dy: 30, w: 100, h: 130 },  // 오른쪽 작은 창고/매점
+    ],
     furniture: [
       // 중앙 테이블 + 의자 세트
-      { type: "desk", x: 110, y: 85, w: 60, h: 30 },
-      { type: "chair", x: 120, y: 120, w: 15, h: 15 },
-      { type: "chair", x: 145, y: 120, w: 15, h: 15 },
-      { type: "chair", x: 120, y: 72, w: 15, h: 15 },
-      { type: "chair", x: 145, y: 72, w: 15, h: 15 },
-      // 벤치 4개 (벽 쪽)
-      { type: "bench", x: 20, y: 35, w: 45, h: 15 },
-      { type: "bench", x: 215, y: 35, w: 45, h: 15 },
-      { type: "bench", x: 20, y: 170, w: 45, h: 15 },
-      { type: "bench", x: 215, y: 170, w: 45, h: 15 },
+      { type: "desk", x: 140, y: 110, w: 65, h: 35 },
+      { type: "chair", x: 150, y: 150, w: 15, h: 15 },
+      { type: "chair", x: 178, y: 150, w: 15, h: 15 },
+      { type: "chair", x: 150, y: 92, w: 15, h: 15 },
+      { type: "chair", x: 178, y: 92, w: 15, h: 15 },
+      // 벤치 (벽 쪽)
+      { type: "bench", x: 20, y: 40, w: 50, h: 15 },
+      { type: "bench", x: 280, y: 40, w: 50, h: 15 },
+      { type: "bench", x: 20, y: 220, w: 50, h: 15 },
+      { type: "bench", x: 280, y: 220, w: 50, h: 15 },
+      { type: "bench", x: 140, y: 220, w: 50, h: 15 },
       // 화분 (코너)
       { type: "plant", x: 15, y: 15, w: 18, h: 18 },
-      { type: "plant", x: 247, y: 15, w: 18, h: 18 },
-      { type: "plant", x: 15, y: 190, w: 18, h: 18 },
-      { type: "plant", x: 247, y: 190, w: 18, h: 18 },
+      { type: "plant", x: 317, y: 15, w: 18, h: 18 },
+      { type: "plant", x: 15, y: 240, w: 18, h: 18 },
+      { type: "plant", x: 317, y: 240, w: 18, h: 18 },
+      { type: "plant", x: 120, y: 15, w: 18, h: 18 },
+      { type: "plant", x: 210, y: 15, w: 18, h: 18 },
       // 게시판 (왼쪽 벽)
-      { type: "bookshelf", x: 15, y: 90, w: 20, h: 40 },
-      // 오른쪽 벽 장식 선반
-      { type: "bookshelf", x: 245, y: 90, w: 20, h: 40 },
-      // 작은 테이블 (좌측)
-      { type: "desk", x: 30, y: 130, w: 35, h: 20 },
-      { type: "chair", x: 38, y: 153, w: 15, h: 15 },
-      // 작은 테이블 (우측)
-      { type: "desk", x: 215, y: 130, w: 35, h: 20 },
-      { type: "chair", x: 225, y: 153, w: 15, h: 15 },
+      { type: "bookshelf", x: 15, y: 100, w: 20, h: 45 },
+      // 오른쪽 벽 장식
+      { type: "bookshelf", x: 315, y: 100, w: 20, h: 45 },
+      // 작은 테이블 세트 (좌하)
+      { type: "desk", x: 35, y: 160, w: 40, h: 22 },
+      { type: "chair", x: 45, y: 185, w: 15, h: 15 },
+      // 작은 테이블 세트 (우하)
+      { type: "desk", x: 275, y: 160, w: 40, h: 22 },
+      { type: "chair", x: 285, y: 185, w: 15, h: 15 },
+      // 오른쪽 창고/매점 안 — 가판대 + 상품 선반
+      { type: "stove", x: 355, y: 45, w: 30, h: 25 },
+      { type: "bookshelf", x: 395, y: 45, w: 30, h: 20 },
+      { type: "desk", x: 355, y: 100, w: 70, h: 20 },
+      { type: "chair", x: 375, y: 125, w: 15, h: 15 },
     ],
   },
   {
