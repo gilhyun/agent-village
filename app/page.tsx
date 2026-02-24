@@ -23,6 +23,8 @@ import {
   getStageLabelColor,
   createBabyAgent,
   randomPosition,
+  pickDestination,
+  getBuildingName,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -250,7 +252,8 @@ export default function VillagePage() {
         setTimeout(() => {
           agentsRef.current = agentsRef.current.map((a) => {
             if (a.id === agentA.id || a.id === agentB.id) {
-              return { ...a, state: "walking" as const, talkingTo: null, ...newTarget() };
+              const next = pickDestination(a.id, a.homeId, a.destination);
+              return { ...a, state: "walking" as const, talkingTo: null, ...next };
             }
             return a;
           });
@@ -272,7 +275,11 @@ export default function VillagePage() {
         const dx = agent.targetX - agent.x;
         const dy = agent.targetY - agent.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 5) return { ...agent, ...newTarget() };
+        if (dist < 8) {
+          // Arrived at destination — pick new one
+          const next = pickDestination(agent.id, agent.homeId, agent.destination);
+          return { ...agent, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
+        }
         return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
       });
 
@@ -467,6 +474,13 @@ export default function VillagePage() {
 
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
+
+      // Show destination
+      if (agent.state === "walking" && agent.destination) {
+        ctx.font = "8px sans-serif";
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.fillText(`→ ${getBuildingName(agent.destination)}`, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 24);
+      }
 
       if (agent.state === "talking") {
         // Check if talking to lover/spouse

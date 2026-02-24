@@ -13,6 +13,8 @@ export interface Agent {
   speed: number;
   state: "walking" | "talking" | "idle";
   talkingTo: string | null;
+  destination: string | null; // building id or null
+  homeId: string | null; // agent's home building id
 }
 
 export interface Relationship {
@@ -57,7 +59,7 @@ export const SPAWNABLE_OBJECTS = [
 ];
 
 // Default agent templates
-export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = [
+export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "destination">[] = [
   {
     id: "agent-1",
     name: "민수",
@@ -67,6 +69,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
     speed: 1.2,
     state: "walking",
     talkingTo: null,
+    homeId: "house-minsu",
   },
   {
     id: "agent-2",
@@ -77,6 +80,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
     speed: 0.8,
     state: "walking",
     talkingTo: null,
+    homeId: "house-jieun",
   },
   {
     id: "agent-3",
@@ -87,6 +91,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
     speed: 1.5,
     state: "walking",
     talkingTo: null,
+    homeId: "house-junho",
   },
   {
     id: "agent-4",
@@ -97,6 +102,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
     speed: 1.0,
     state: "walking",
     talkingTo: null,
+    homeId: "house-hana",
   },
   {
     id: "agent-5",
@@ -107,6 +113,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
     speed: 1.1,
     state: "walking",
     talkingTo: null,
+    homeId: "house-taehyun",
   },
 ];
 
@@ -174,11 +181,45 @@ export function randomPosition() {
   };
 }
 
-// Generate a new random target for an agent to walk to
-export function newTarget() {
+// Pick a random destination building for an agent
+export function pickDestination(agentId: string, homeId: string | null, currentDest: string | null): { targetX: number; targetY: number; destination: string } {
+  // Possible destinations: all buildings
+  const candidates = VILLAGE_BUILDINGS.filter(b => b.id !== currentDest);
+
+  // 30% chance to go home if has a home
+  if (homeId && Math.random() < 0.3) {
+    const home = VILLAGE_BUILDINGS.find(b => b.id === homeId);
+    if (home && home.id !== currentDest) {
+      return {
+        targetX: home.x + home.width / 2 + (Math.random() - 0.5) * 30,
+        targetY: home.y + home.height + 15 + Math.random() * 20,
+        destination: home.id,
+      };
+    }
+  }
+
+  // Random building
+  const building = candidates[Math.floor(Math.random() * candidates.length)];
   return {
-    targetX: 50 + Math.random() * (MAP_WIDTH - 100),
-    targetY: 50 + Math.random() * (MAP_HEIGHT - 100),
+    targetX: building.x + building.width / 2 + (Math.random() - 0.5) * 30,
+    targetY: building.y + building.height + 15 + Math.random() * 20,
+    destination: building.id,
+  };
+}
+
+// Get building name by id
+export function getBuildingName(id: string): string {
+  const b = VILLAGE_BUILDINGS.find(b => b.id === id);
+  return b ? b.name : id;
+}
+
+// Generate a new random target for an agent to walk to (legacy fallback)
+export function newTarget() {
+  const dest = pickDestination("", null, null);
+  return {
+    targetX: dest.targetX,
+    targetY: dest.targetY,
+    destination: dest.destination,
   };
 }
 
@@ -240,7 +281,7 @@ const BABY_COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#f9
 
 let babyCounter = 0;
 
-export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x" | "y" | "targetX" | "targetY"> {
+export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x" | "y" | "targetX" | "targetY" | "destination"> {
   babyCounter++;
   const isBoy = Math.random() > 0.5;
   const names = isBoy ? BABY_NAMES_M : BABY_NAMES_F;
@@ -264,6 +305,7 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x"
     speed: 0.7 + Math.random() * 0.5,
     state: "walking",
     talkingTo: null,
+    homeId: parentA.homeId, // lives with parents
   };
 }
 
@@ -271,11 +313,13 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x"
 export function initializeAgents(templates: typeof DEFAULT_AGENTS): Agent[] {
   return templates.map((t) => {
     const pos = randomPosition();
-    const target = newTarget();
+    const dest = pickDestination(t.id, t.homeId, null);
     return {
       ...t,
       ...pos,
-      ...target,
+      targetX: dest.targetX,
+      targetY: dest.targetY,
+      destination: dest.destination,
     };
   });
 }
