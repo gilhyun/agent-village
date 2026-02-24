@@ -760,18 +760,18 @@ function drawRoom(
     wpIdx++;
   }
 
-  // 벽 상단 처마 (cornice)
-  ctx.fillStyle = wallLight;
+  // 벽 상단 처마 (나무 장선)
+  ctx.fillStyle = shadeColor(wall, -20);
   ctx.fillRect(rx - 2, backY - 3, rw + 4, 5);
-  ctx.fillStyle = shadeColor(wall, 30);
+  ctx.fillStyle = shadeColor(wall, -10);
   ctx.fillRect(rx - 2, backY - 3, rw + 4, 2);
-  ctx.fillStyle = wallDark;
+  ctx.fillStyle = shadeColor(wall, -30);
   ctx.fillRect(rx - 2, backY + 1, rw + 4, 1);
 
-  // 벽 하단 몰딩 (baseboard)
-  ctx.fillStyle = shadeColor(wall, -18);
+  // 벽 하단 몰딩 (나무 걸레받이)
+  ctx.fillStyle = shadeColor(wall, -22);
   ctx.fillRect(rx, ry - 3, rw, 3);
-  ctx.fillStyle = wallDark;
+  ctx.fillStyle = shadeColor(wall, -30);
   ctx.fillRect(rx, ry - 1, rw, 1);
 
   // ── 창문 (더 디테일하게) ──
@@ -782,11 +782,11 @@ function drawRoom(
     for (let i = 1; i <= winCount; i++) {
       const wx = rx + winSpacing * i - winW / 2;
       const wy = backY + 8;
-      // 창틀 외곽
-      ctx.fillStyle = shadeColor(wall, -25);
+      // 창틀 외곽 (어두운 나무)
+      ctx.fillStyle = shadeColor(wall, -30);
       ctx.fillRect(wx - 2, wy - 2, winW + 4, winH + 4);
-      // 창틀
-      ctx.fillStyle = "#f5f0e8";
+      // 창틀 (나무색)
+      ctx.fillStyle = shadeColor(wall, -15);
       ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
       // 유리
       const glassGr = ctx.createLinearGradient(wx, wy, wx + winW, wy + winH);
@@ -795,15 +795,15 @@ function drawRoom(
       glassGr.addColorStop(1, "#5898c8");
       ctx.fillStyle = glassGr;
       ctx.fillRect(wx, wy, winW, winH);
-      // 창살
-      ctx.fillStyle = "#f0ece4";
+      // 창살 (나무색)
+      ctx.fillStyle = shadeColor(wall, -12);
       ctx.fillRect(wx + winW / 2 - 0.5, wy, 1.5, winH);
       ctx.fillRect(wx, wy + winH / 2 - 0.5, winW, 1.5);
       // 반사 하이라이트
       ctx.fillStyle = "rgba(255,255,255,0.35)";
       ctx.fillRect(wx + 1, wy + 1, winW / 2 - 2, winH / 2 - 2);
-      // 창문 아래 선반
-      ctx.fillStyle = "#f5f0e8";
+      // 창문 아래 선반 (나무색)
+      ctx.fillStyle = shadeColor(wall, -18);
       ctx.fillRect(wx - 2, wy + winH + 1, winW + 4, 2);
     }
   }

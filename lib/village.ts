@@ -157,7 +157,7 @@ export interface Furniture {
 export const VILLAGE_BUILDINGS: Building[] = [
   {
     // 민수의 집 — L자형 (메인 + 오른쪽 아래 서재)
-    id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 60, y: 80, width: 160, height: 110, roofColor: "#6366f1", wallColor: "#c7d2fe", floorColor: "#e8dcc8",
+    id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 60, y: 80, width: 160, height: 110, roofColor: "#6366f1", wallColor: "#c4a070", floorColor: "#e8dcc8",
     wings: [{ dx: 100, dy: 70, w: 100, h: 80 }], // 오른쪽 아래로 서재 돌출
     furniture: [
       { type: "bed", x: 12, y: 35, w: 40, h: 30 },
@@ -173,7 +173,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 지은의 집 — ㄱ자형 (메인 + 왼쪽 위로 발코니/화실)
-    id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1340, y: 60, width: 130, height: 140, roofColor: "#ec4899", wallColor: "#fbcfe8", floorColor: "#f0e0e8",
+    id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1340, y: 60, width: 130, height: 140, roofColor: "#ec4899", wallColor: "#d4a88c", floorColor: "#f0e0e8",
     wings: [{ dx: -80, dy: 0, w: 90, h: 80 }], // 왼쪽으로 화실 돌출
     furniture: [
       { type: "bed", x: 12, y: 15, w: 40, h: 30 },
@@ -187,7 +187,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 준호의 집 — T자형 (메인 + 위로 전망대)
-    id: "house-junho", name: "준호의 집", emoji: "🏠", x: 60, y: 920, width: 150, height: 120, roofColor: "#14b8a6", wallColor: "#ccfbf1", floorColor: "#d8e8e0",
+    id: "house-junho", name: "준호의 집", emoji: "🏠", x: 60, y: 920, width: 150, height: 120, roofColor: "#14b8a6", wallColor: "#b89870", floorColor: "#d8e8e0",
     wings: [{ dx: 25, dy: -65, w: 100, h: 75 }], // 위로 전망대 돌출
     furniture: [
       { type: "bed", x: 12, y: 40, w: 40, h: 30 },
@@ -201,7 +201,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 하나의 집 — ㄴ자형 (메인 + 왼쪽 아래 실험실)
-    id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1300, y: 880, width: 170, height: 110, roofColor: "#f59e0b", wallColor: "#fef3c7", floorColor: "#f0e8d0",
+    id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1300, y: 880, width: 170, height: 110, roofColor: "#f59e0b", wallColor: "#c8a060", floorColor: "#f0e8d0",
     wings: [{ dx: -70, dy: 50, w: 110, h: 80 }], // 왼쪽 아래로 실험실
     furniture: [
       { type: "bed", x: 120, y: 30, w: 40, h: 30 },
@@ -216,7 +216,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 태현의 집 — ㅗ자형 (넓은 주방 + 아래로 식당)
-    id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 650, y: 40, width: 220, height: 90, roofColor: "#ef4444", wallColor: "#fecaca", floorColor: "#f0d8c8",
+    id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 650, y: 40, width: 220, height: 90, roofColor: "#ef4444", wallColor: "#c09068", floorColor: "#f0d8c8",
     wings: [{ dx: 50, dy: 80, w: 120, h: 80 }], // 아래 가운데로 식당 돌출
     furniture: [
       { type: "bed", x: 12, y: 20, w: 40, h: 28 },
@@ -233,7 +233,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 카페 — L자 대형 (메인 홀 + 오른쪽 테라스)
-    id: "cafe", name: "마을 카페", emoji: "☕", x: 50, y: 380, width: 200, height: 170, roofColor: "#92400e", wallColor: "#fde68a", floorColor: "#f5e6c8",
+    id: "cafe", name: "마을 카페", emoji: "☕", x: 50, y: 380, width: 200, height: 170, roofColor: "#92400e", wallColor: "#c89858", floorColor: "#f5e6c8",
     wings: [{ dx: 180, dy: 40, w: 100, h: 130 }], // 오른쪽 테라스
     furniture: [
       { type: "counter", x: 12, y: 15, w: 70, h: 22 },
@@ -255,7 +255,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 도서관 — T자형 (입구 홀 + 서가 양쪽 날개)
-    id: "library", name: "도서관", emoji: "📚", x: 1080, y: 400, width: 120, height: 200, roofColor: "#166534", wallColor: "#dcfce7", floorColor: "#e0d8c8",
+    id: "library", name: "도서관", emoji: "📚", x: 1080, y: 400, width: 120, height: 200, roofColor: "#166534", wallColor: "#a89070", floorColor: "#e0d8c8",
     wings: [
       { dx: -100, dy: 0, w: 110, h: 120 },  // 왼쪽 서가
       { dx: 110, dy: 0, w: 110, h: 120 },   // 오른쪽 서가
@@ -280,7 +280,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 마을 광장 — 단순 큰 사각형 (광장은 원래 넓으니까)
-    id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 500, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#e5e7eb", floorColor: "#d0ccc4",
+    id: "plaza", name: "마을 광장", emoji: "⛲", x: 620, y: 500, width: 280, height: 220, roofColor: "#6b7280", wallColor: "#b8a080", floorColor: "#d0ccc4",
     furniture: [
       { type: "fountain", x: 110, y: 75, w: 65, h: 65 },
       { type: "bench", x: 20, y: 40, w: 45, h: 15 },
@@ -293,7 +293,7 @@ export const VILLAGE_BUILDINGS: Building[] = [
   },
   {
     // 공원 — ㄷ자형 (가운데 열린 잔디 + 양쪽 숲)
-    id: "park", name: "공원", emoji: "🌳", x: 350, y: 830, width: 180, height: 100, roofColor: "#15803d", wallColor: "#86efac", floorColor: "#90c878",
+    id: "park", name: "공원", emoji: "🌳", x: 350, y: 830, width: 180, height: 100, roofColor: "#15803d", wallColor: "#8a7858", floorColor: "#90c878",
     wings: [
       { dx: -20, dy: -60, w: 80, h: 70 },   // 왼쪽 위 숲
       { dx: 120, dy: -60, w: 80, h: 70 },   // 오른쪽 위 숲
