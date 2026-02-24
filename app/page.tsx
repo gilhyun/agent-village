@@ -205,13 +205,9 @@ export default function VillagePage() {
         relationshipsRef.current.set(key, updatedRel);
         setRelationships(new Map(relationshipsRef.current));
 
-        // Set agents to talking state temporarily
+        // Already in talking state from collision detection
+        // Set timer to release them after conversation ends
         const totalDuration = data.messages.length * 2000 + BUBBLE_DURATION;
-        agentsRef.current = agentsRef.current.map((a) => {
-          if (a.id === agentA.id) return { ...a, state: "talking" as const, talkingTo: agentB.id };
-          if (a.id === agentB.id) return { ...a, state: "talking" as const, talkingTo: agentA.id };
-          return a;
-        });
 
         setTimeout(() => {
           agentsRef.current = agentsRef.current.map((a) => {
@@ -280,14 +276,26 @@ export default function VillagePage() {
                 relationshipsRef.current.set(key, rel);
               }
 
-              // 부딪힘! 서로를 바라보며 약간 거리를 벌림
+              // 부딪힘! 즉시 멈추고 서로 마주보게
               const midX = (a.x + b.x) / 2;
               const midY = (a.y + b.y) / 2;
               const angle = Math.atan2(b.y - a.y, b.x - a.x);
               const faceDistance = 25;
               agentsRef.current = agentsRef.current.map((ag) => {
-                if (ag.id === a.id) return { ...ag, x: midX - Math.cos(angle) * faceDistance, y: midY - Math.sin(angle) * faceDistance };
-                if (ag.id === b.id) return { ...ag, x: midX + Math.cos(angle) * faceDistance, y: midY + Math.sin(angle) * faceDistance };
+                if (ag.id === a.id) return {
+                  ...ag,
+                  x: midX - Math.cos(angle) * faceDistance,
+                  y: midY - Math.sin(angle) * faceDistance,
+                  state: "talking" as const,
+                  talkingTo: b.id,
+                };
+                if (ag.id === b.id) return {
+                  ...ag,
+                  x: midX + Math.cos(angle) * faceDistance,
+                  y: midY + Math.sin(angle) * faceDistance,
+                  state: "talking" as const,
+                  talkingTo: a.id,
+                };
                 return ag;
               });
 
