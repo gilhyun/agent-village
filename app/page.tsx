@@ -18,6 +18,11 @@ import {
   distance,
   relationshipKey,
   getConversationType,
+  getRelationshipStage,
+  getStageLabel,
+  getStageLabelColor,
+  createBabyAgent,
+  randomPosition,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -173,6 +178,7 @@ export default function VillagePage() {
           agentA: { id: agentA.id, name: agentA.name, emoji: agentA.emoji, personality: agentA.personality },
           agentB: { id: agentB.id, name: agentB.name, emoji: agentB.emoji, personality: agentB.personality },
           conversationType: convType, meetCount: rel.meetCount,
+          stage: rel.stage,
         }),
       });
       const data = await res.json();
@@ -187,10 +193,58 @@ export default function VillagePage() {
             }
           }, i * 2000);
         });
-        const updatedRel = { ...rel, meetCount: rel.meetCount + 1 };
+
+        // Update relationship
+        const newMeetCount = rel.meetCount + 1;
+        const oldStage = rel.stage;
+        const newStage = getRelationshipStage(newMeetCount, oldStage);
+        const updatedRel: Relationship = { ...rel, meetCount: newMeetCount, stage: newStage };
         if (data.topic) updatedRel.lastTopics = [...updatedRel.lastTopics, data.topic].slice(-3);
         relationshipsRef.current.set(key, updatedRel);
         setRelationships(new Map(relationshipsRef.current));
+
+        // Stage change announcement
+        if (newStage !== oldStage) {
+          const stageEmoji = newStage === "lover" ? "💕" : newStage === "married" ? "💍" : newStage === "parent" ? "👶" : "🤝";
+          const stageMsg = newStage === "lover"
+            ? `${agentA.name}와(과) ${agentB.name}이(가) 연인이 되었습니다!`
+            : newStage === "married"
+            ? `${agentA.name}와(과) ${agentB.name}이(가) 결혼했습니다!`
+            : newStage === "parent"
+            ? `${agentA.name}와(과) ${agentB.name}에게 아이가 태어났습니다!`
+            : `${agentA.name}와(과) ${agentB.name}의 관계가 발전했습니다!`;
+
+          setTimeout(() => {
+            setConversationLog((prev) => [`${stageEmoji} ${stageMsg}`, ...prev].slice(0, 50));
+            // Heart bubbles for romantic stages
+            if (newStage === "lover" || newStage === "married" || newStage === "parent") {
+              bubblesRef.current = [
+                ...bubblesRef.current,
+                { id: `stage-${Date.now()}-a`, agentId: agentA.id, text: stageEmoji, timestamp: Date.now(), duration: 5000 },
+                { id: `stage-${Date.now()}-b`, agentId: agentB.id, text: stageEmoji, timestamp: Date.now(), duration: 5000 },
+              ];
+              setBubbles([...bubblesRef.current]);
+            }
+          }, data.messages.length * 2000);
+
+          // Baby born! Add new agent
+          if (newStage === "parent") {
+            setTimeout(() => {
+              const babyTemplate = createBabyAgent(agentA, agentB);
+              const pos = randomPosition();
+              const target = newTarget();
+              const babyAgent: Agent = { ...babyTemplate, ...pos, ...target };
+              agentsRef.current = [...agentsRef.current, babyAgent];
+              setAgents([...agentsRef.current]);
+              setConversationLog((prev) => [`🎉 ${babyAgent.emoji} ${babyAgent.name}이(가) 마을에 태어났습니다! (${agentA.name} & ${agentB.name}의 아이)`, ...prev].slice(0, 50));
+              bubblesRef.current = [
+                ...bubblesRef.current,
+                { id: `baby-${Date.now()}`, agentId: babyAgent.id, text: "응애~ 👶", timestamp: Date.now(), duration: 8000 },
+              ];
+              setBubbles([...bubblesRef.current]);
+            }, data.messages.length * 2000 + 3000);
+          }
+        }
 
         const totalDuration = data.messages.length * 2000 + BUBBLE_DURATION;
         setTimeout(() => {
@@ -232,7 +286,7 @@ export default function VillagePage() {
             const key = relationshipKey(a.id, b.id);
             if (!pendingChatsRef.current.has(key)) {
               let rel = relationshipsRef.current.get(key);
-              if (!rel) { rel = { agentA: a.id, agentB: b.id, meetCount: 0, lastTopics: [] }; relationshipsRef.current.set(key, rel); }
+              if (!rel) { rel = { agentA: a.id, agentB: b.id, meetCount: 0, lastTopics: [], stage: "stranger" }; relationshipsRef.current.set(key, rel); }
               const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
               const angle = Math.atan2(b.y - a.y, b.x - a.x);
               agentsRef.current = agentsRef.current.map((ag) => {
@@ -415,8 +469,17 @@ export default function VillagePage() {
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
       if (agent.state === "talking") {
+        // Check if talking to lover/spouse
+        let talkEmoji = "💬";
+        if (agent.talkingTo) {
+          const relKey = relationshipKey(agent.id, agent.talkingTo);
+          const rel = relationshipsRef.current.get(relKey);
+          if (rel && (rel.stage === "lover" || rel.stage === "married" || rel.stage === "parent")) {
+            talkEmoji = "💕";
+          }
+        }
         ctx.fillStyle = "#fbbf24"; ctx.font = "12px sans-serif";
-        ctx.fillText("💬", agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 4, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2);
+        ctx.fillText(talkEmoji, agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 4, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2);
       }
     });
 
@@ -545,8 +608,8 @@ export default function VillagePage() {
                 const a = agents.find((ag) => ag.id === rel.agentA);
                 const b = agents.find((ag) => ag.id === rel.agentB);
                 if (!a || !b) return null;
-                const level = rel.meetCount === 0 ? "모르는 사이" : rel.meetCount <= 2 ? "아는 사이" : "친한 사이";
-                const color = rel.meetCount === 0 ? "text-zinc-500" : rel.meetCount <= 2 ? "text-blue-400" : "text-emerald-400";
+                const level = getStageLabel(rel.stage);
+                const color = getStageLabelColor(rel.stage);
                 return (<div key={`${rel.agentA}-${rel.agentB}`} className="flex items-center justify-between text-xs"><span>{a.emoji} {a.name} ↔ {b.emoji} {b.name}</span><span className={`font-bold ${color}`}>{level} ({rel.meetCount}회)</span></div>);
               })}
               {relationships.size === 0 && <p className="text-xs text-zinc-600 italic">아직 만난 에이전트가 없습니다...</p>}

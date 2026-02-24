@@ -20,6 +20,7 @@ export interface Relationship {
   agentB: string;
   meetCount: number;
   lastTopics: string[];
+  stage: "stranger" | "acquaintance" | "friend" | "lover" | "married" | "parent";
 }
 
 export interface ChatBubble {
@@ -196,6 +197,74 @@ export function getConversationType(meetCount: number): "greeting" | "smalltalk"
   if (meetCount === 0) return "greeting";
   if (meetCount <= 2) return "smalltalk";
   return "deep";
+}
+
+// Relationship stage thresholds
+export function getRelationshipStage(meetCount: number, currentStage: Relationship["stage"]): Relationship["stage"] {
+  // Stage progression: stranger → acquaintance → friend → lover → married → parent
+  // Each stage requires minimum meet count AND previous stage
+  if (meetCount >= 20 && currentStage === "married") return "parent";
+  if (meetCount >= 15 && currentStage === "lover") return "married";
+  if (meetCount >= 10 && currentStage === "friend") return "lover";
+  if (meetCount >= 5 && currentStage === "acquaintance") return "friend";
+  if (meetCount >= 2 && currentStage === "stranger") return "acquaintance";
+  return currentStage;
+}
+
+export function getStageLabel(stage: Relationship["stage"]): string {
+  switch (stage) {
+    case "stranger": return "모르는 사이";
+    case "acquaintance": return "아는 사이";
+    case "friend": return "친한 사이";
+    case "lover": return "연인 💕";
+    case "married": return "부부 💍";
+    case "parent": return "부모 👶";
+  }
+}
+
+export function getStageLabelColor(stage: Relationship["stage"]): string {
+  switch (stage) {
+    case "stranger": return "text-zinc-500";
+    case "acquaintance": return "text-blue-400";
+    case "friend": return "text-emerald-400";
+    case "lover": return "text-pink-400";
+    case "married": return "text-amber-400";
+    case "parent": return "text-purple-400";
+  }
+}
+
+// Korean baby names
+const BABY_NAMES_M = ["서준", "도윤", "시우", "주원", "하준", "지호", "유준", "은우", "현우", "건우"];
+const BABY_NAMES_F = ["서연", "서윤", "지우", "하은", "하윤", "수아", "지아", "다은", "예은", "지유"];
+const BABY_COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#f97316", "#e879f9"];
+
+let babyCounter = 0;
+
+export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x" | "y" | "targetX" | "targetY"> {
+  babyCounter++;
+  const isBoy = Math.random() > 0.5;
+  const names = isBoy ? BABY_NAMES_M : BABY_NAMES_F;
+  const name = names[babyCounter % names.length];
+  const color = BABY_COLORS[babyCounter % BABY_COLORS.length];
+
+  // Mix parent traits
+  const traits = [
+    `${parentA.name}와(과) ${parentB.name}의 아이`,
+    isBoy ? "남자아이" : "여자아이",
+    "호기심이 많고 순수하다",
+    `${parentA.name}의 성격과 ${parentB.name}의 성격을 닮았다`,
+  ];
+
+  return {
+    id: `baby-${Date.now()}-${babyCounter}`,
+    name,
+    emoji: isBoy ? "👦" : "👧",
+    color,
+    personality: traits.join(". ") + ".",
+    speed: 0.7 + Math.random() * 0.5,
+    state: "walking",
+    talkingTo: null,
+  };
 }
 
 // Initialize agents with random positions
