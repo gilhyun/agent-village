@@ -12,6 +12,7 @@ export const T = {
   DIRT: 1,
   WATER: 2,
   STONE: 3,
+  GRASS_TALL: 4, // 풀숲 (짙은 잔디)
 } as const;
 
 export type TileType = (typeof T)[keyof typeof T];
@@ -111,6 +112,33 @@ function buildTilemap(): TileType[][] {
         }
       }
     });
+  });
+
+  // Tall grass patches (풀숲) - scattered around the map
+  const tallGrassPatches = [
+    { cx: 5, cy: 5, r: 3 },
+    { cx: 45, cy: 5, r: 2 },
+    { cx: 8, cy: 20, r: 2 },
+    { cx: 48, cy: 22, r: 3 },
+    { cx: 3, cy: 35, r: 2 },
+    { cx: 52, cy: 35, r: 2 },
+    { cx: 20, cy: 8, r: 2 },
+    { cx: 35, cy: 40, r: 2 },
+    { cx: 50, cy: 12, r: 2 },
+    { cx: 15, cy: 40, r: 3 },
+  ];
+  tallGrassPatches.forEach(({ cx, cy, r }) => {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy <= r * r) {
+          const ty = cy + dy;
+          const tx = cx + dx;
+          if (ty >= 0 && ty < TILES_Y && tx >= 0 && tx < TILES_X && map[ty][tx] === T.GRASS) {
+            map[ty][tx] = T.GRASS_TALL;
+          }
+        }
+      }
+    }
   });
 
   return map;

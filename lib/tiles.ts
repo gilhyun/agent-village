@@ -98,6 +98,48 @@ export function drawGrassTile(ctx: Ctx, x: number, y: number, s: number, variant
   }
 }
 
+// ── Tall Grass (풀숲 — darker, bushier) ──
+export function drawTallGrassTile(ctx: Ctx, x: number, y: number, s: number, variant: number = 0) {
+  // Darker base
+  rect(ctx, x, y, s, 0, 0, 16, 16, GRASS.dark);
+
+  const v = variant % 6;
+  // Dense grass blade pattern
+  const blades: [number, number, string][] = [
+    [2, 3, GRASS.darker], [3, 2, GRASS.darker], [4, 4, GRASS.base],
+    [6, 1, GRASS.darker], [7, 3, GRASS.dark], [8, 2, GRASS.darker],
+    [10, 4, GRASS.base], [11, 1, GRASS.darker], [13, 3, GRASS.darker],
+    [1, 7, GRASS.darker], [3, 6, GRASS.base], [5, 8, GRASS.darker],
+    [7, 7, GRASS.dark], [9, 6, GRASS.darker], [11, 8, GRASS.base],
+    [13, 7, GRASS.darker], [14, 6, GRASS.darker],
+    [2, 10, GRASS.darker], [4, 11, GRASS.base], [6, 10, GRASS.darker],
+    [8, 12, GRASS.dark], [10, 10, GRASS.darker], [12, 11, GRASS.base],
+    [14, 10, GRASS.darker],
+    [1, 14, GRASS.darker], [3, 13, GRASS.base], [5, 14, GRASS.darker],
+    [9, 14, GRASS.dark], [11, 13, GRASS.darker], [13, 14, GRASS.base],
+  ];
+  blades.forEach(([bx, by, color]) => {
+    px(ctx, x, y, s, (bx + v) % 16, by, color);
+  });
+
+  // Tall grass tips (lighter, sticking up)
+  if (v % 2 === 0) {
+    px(ctx, x, y, s, 4, 1, GRASS.light);
+    px(ctx, x, y, s, 10, 0, GRASS.light);
+    px(ctx, x, y, s, 7, 5, GRASS.light);
+    px(ctx, x, y, s, 13, 9, GRASS.light);
+  } else {
+    px(ctx, x, y, s, 2, 0, GRASS.light);
+    px(ctx, x, y, s, 8, 1, GRASS.light);
+    px(ctx, x, y, s, 5, 6, GRASS.light);
+    px(ctx, x, y, s, 11, 10, GRASS.light);
+  }
+
+  // Occasional wildflower
+  if (v === 3) px(ctx, x, y, s, 6, 9, "#e87ea1");
+  if (v === 5) px(ctx, x, y, s, 12, 4, "#f9d84a");
+}
+
 // ── Dirt Path Tile ──
 export function drawDirtPathTile(ctx: Ctx, x: number, y: number, s: number, variant: number = 0) {
   rect(ctx, x, y, s, 0, 0, 16, 16, DIRT.base);
@@ -240,6 +282,100 @@ export function drawTreeTile(ctx: Ctx, x: number, y: number, s: number, variant:
   px(ctx, x, y, s, 11, 7, greens[0]);
   px(ctx, x, y, s, 4, 8, greens[0]);
   px(ctx, x, y, s, 10, 5, greens[0]);
+}
+
+// ── Big Tree (2x2 tile, 32x32 — lush RPG style) ──
+export function drawBigTree(ctx: Ctx, x: number, y: number, s: number, variant: number = 0) {
+  const greens = variant % 3 === 0
+    ? ["#1e5510", "#2a6e18", "#388a22", "#48a530", "#5cc040", "#6cd850"]
+    : variant % 3 === 1
+    ? ["#1a5008", "#267214", "#329020", "#40a82c", "#50c03a", "#60d448"]
+    : ["#225a14", "#2e781e", "#3c9528", "#4cb038", "#5ec848", "#70dc58"];
+
+  // Ground shadow (large ellipse)
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(x + 16 * s, y + 30 * s, 12 * s, 3 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Trunk (thicker, bark texture)
+  rect(ctx, x, y, s, 13, 22, 6, 10, "#4a2808");
+  rect(ctx, x, y, s, 14, 23, 4, 9, "#6a3c14");
+  rect(ctx, x, y, s, 15, 24, 2, 7, "#7a4c20");
+  // Bark lines
+  px(ctx, x, y, s, 13, 25, "#3a1c04");
+  px(ctx, x, y, s, 14, 27, "#3a1c04");
+  px(ctx, x, y, s, 17, 26, "#3a1c04");
+  // Root bumps
+  px(ctx, x, y, s, 12, 31, "#5a3010");
+  px(ctx, x, y, s, 19, 31, "#5a3010");
+
+  // Canopy — layered circles/ovals for organic shape
+  // Bottom layer (darkest, widest)
+  for (let row = 18; row <= 21; row++) {
+    for (let col = 4; col <= 27; col++) {
+      const dx = col - 16, dy = row - 14;
+      if (dx * dx / 144 + dy * dy / 64 < 1) {
+        px(ctx, x, y, s, col, row, greens[1]);
+      }
+    }
+  }
+  // Middle layer
+  for (let row = 10; row <= 19; row++) {
+    for (let col = 3; col <= 28; col++) {
+      const dx = col - 16, dy = row - 13;
+      if (dx * dx / 160 + dy * dy / 50 < 1) {
+        px(ctx, x, y, s, col, row, greens[2]);
+      }
+    }
+  }
+  // Upper layer
+  for (let row = 6; row <= 15; row++) {
+    for (let col = 5; col <= 27; col++) {
+      const dx = col - 16, dy = row - 10;
+      if (dx * dx / 120 + dy * dy / 30 < 1) {
+        px(ctx, x, y, s, col, row, greens[3]);
+      }
+    }
+  }
+  // Top layer (lightest, smallest)
+  for (let row = 3; row <= 10; row++) {
+    for (let col = 8; col <= 24; col++) {
+      const dx = col - 16, dy = row - 6;
+      if (dx * dx / 64 + dy * dy / 16 < 1) {
+        px(ctx, x, y, s, col, row, greens[2]);
+      }
+    }
+  }
+  // Crown
+  for (let row = 2; row <= 6; row++) {
+    for (let col = 10; col <= 22; col++) {
+      const dx = col - 16, dy = row - 4;
+      if (dx * dx / 40 + dy * dy / 8 < 1) {
+        px(ctx, x, y, s, col, row, greens[1]);
+      }
+    }
+  }
+
+  // Sun highlights (top-left bright spots)
+  const highlights: [number, number][] = [
+    [10, 5], [11, 4], [12, 3], [13, 5], [9, 7], [11, 8],
+    [14, 4], [8, 9], [10, 10], [7, 12],
+  ];
+  highlights.forEach(([hx, hy]) => {
+    px(ctx, x, y, s, hx, hy, greens[4]);
+  });
+  px(ctx, x, y, s, 11, 3, greens[5]);
+  px(ctx, x, y, s, 12, 5, greens[5]);
+
+  // Shadow depth (bottom-right dark)
+  const shadows: [number, number][] = [
+    [20, 14], [22, 13], [24, 12], [21, 16], [23, 15],
+    [19, 18], [25, 11], [18, 19], [22, 17],
+  ];
+  shadows.forEach(([sx, sy]) => {
+    px(ctx, x, y, s, sx, sy, greens[0]);
+  });
 }
 
 // ── Flower (colorful, 3 petal styles) ──

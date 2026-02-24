@@ -37,7 +37,7 @@ import {
 import {
   drawGrassTile, drawDirtPathTile, drawWaterTile, drawStoneTile,
   drawTreeTile, drawFlowerTile, drawBushTile, drawRockTile,
-  drawBuildingInterior,
+  drawBuildingInterior, drawTallGrassTile, drawBigTree,
 } from "@/lib/tiles";
 import { TILEMAP, TILE_SIZE, TILE_SCALE, TILES_X, TILES_Y, T, DECORATIONS } from "@/lib/tilemap";
 
@@ -401,6 +401,8 @@ export default function VillagePage() {
           drawWaterTile(ctx, px, py, TILE_SCALE, tick);
         } else if (tile === T.STONE) {
           drawStoneTile(ctx, px, py, TILE_SCALE, variant);
+        } else if (tile === T.GRASS_TALL) {
+          drawTallGrassTile(ctx, px, py, TILE_SCALE, variant);
         }
       }
     }
@@ -431,7 +433,7 @@ export default function VillagePage() {
       if (dpy + TS * 2 < cameraY || dpy > cameraY + VIEWPORT_H) return;
       if (godEffect) return; // hide decorations during god effect
 
-      if (d.type === "tree") drawTreeTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
+      if (d.type === "tree") drawBigTree(ctx, dpx, dpy, TILE_SCALE, d.variant);
       else if (d.type === "flower") drawFlowerTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
       else if (d.type === "bush") drawBushTile(ctx, dpx, dpy, TILE_SCALE);
       else if (d.type === "rock") drawRockTile(ctx, dpx, dpy, TILE_SCALE, d.variant);
