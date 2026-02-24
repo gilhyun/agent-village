@@ -161,6 +161,31 @@ export default function VillagePage() {
           }, i * 1500);
         });
       }
+      // 퀘스트 결과 — 칭호 부여
+      if (data.quest && data.quest.isQuest) {
+        const q = data.quest;
+        // 발표 메시지
+        if (q.announcement) {
+          setConversationLog((prev) => [`🏆 ${q.announcement}`, ...prev].slice(0, 50));
+        }
+        // 상세 결과
+        if (q.results) {
+          q.results.forEach((r: { agentName: string; action: string; result: string }) => {
+            setConversationLog((prev) => [`  📋 ${r.agentName}: ${r.action} → ${r.result}`, ...prev].slice(0, 50));
+          });
+        }
+        // 칭호 부여
+        if (q.titles) {
+          Object.entries(q.titles).forEach(([name, title]) => {
+            const agent = agentsRef.current.find(a => a.name === name);
+            if (agent && title) {
+              agent.title = title as string;
+              setConversationLog((prev) => [`🎖️ ${agent.emoji} ${name}에게 "${title}" 칭호가 부여되었습니다!`, ...prev].slice(0, 50));
+            }
+          });
+          setAgents([...agentsRef.current]);
+        }
+      }
     } catch (e) { console.error("God decree failed:", e); }
     setGodMessage("");
     setIsSendingDecree(false);
@@ -482,6 +507,29 @@ export default function VillagePage() {
 
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
+
+      // 칭호 명찰 (title badge)
+      if (agent.title) {
+        const titleText = agent.title;
+        ctx.font = "bold 9px sans-serif";
+        const titleW = ctx.measureText(titleText).width + 8;
+        const titleX = agent.x - titleW / 2;
+        const titleY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 18;
+        // 배경 (금색 그라데이션)
+        const badgeGr = ctx.createLinearGradient(titleX, titleY, titleX + titleW, titleY + 14);
+        badgeGr.addColorStop(0, "#d4a017");
+        badgeGr.addColorStop(0.5, "#f0c040");
+        badgeGr.addColorStop(1, "#d4a017");
+        ctx.fillStyle = badgeGr;
+        ctx.beginPath(); ctx.roundRect(titleX, titleY, titleW, 14, 3); ctx.fill();
+        // 테두리
+        ctx.strokeStyle = "#8a6010";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(titleX, titleY, titleW, 14, 3); ctx.stroke();
+        // 텍스트
+        ctx.fillStyle = "#3a2000";
+        ctx.fillText(titleText, agent.x, titleY + 11);
+      }
 
       // Show destination
       if (agent.state === "walking" && agent.destination) {

@@ -15,6 +15,7 @@ export interface Agent {
   talkingTo: string | null;
   destination: string | null; // building id or null
   homeId: string | null; // agent's home building id
+  title?: string | null; // 명찰/칭호 (예: "마을 회장", "요리왕")
 }
 
 export interface Relationship {
