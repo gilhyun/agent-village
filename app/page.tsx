@@ -34,7 +34,6 @@ import {
   VillageLaw,
   PROPOSED_LAWS,
   BLOCK_COLORS,
-  BLOCK_ART_TEMPLATES,
   PATTERN_COLOR_MAP,
   PlacedBlock,
 } from "@/lib/village";
@@ -964,33 +963,53 @@ export default function VillagePage() {
             }
           }
 
-          // 🧱 15% 확률로 블록아트 만들기!
+          // 🧱 15% 확률로 블록아트 만들기! (AI 생성)
           if (Math.random() < 0.15 && agent.coins > 500_000 && !agent.isBaby) {
-            const template = BLOCK_ART_TEMPLATES[Math.floor(Math.random() * BLOCK_ART_TEMPLATES.length)];
-            // 블록 비용 계산 (패턴에서 공백 아닌 칸 × 1만원)
-            let blockCount = 0;
-            template.pattern.forEach(row => row.forEach(cell => { if (cell !== " ") blockCount++; }));
-            const totalCost = blockCount * 10_000;
-            if (agent.coins >= totalCost) {
-              // 집 근처 또는 현재 위치에 배치
-              const home = VILLAGE_BUILDINGS.find(b => b.id === agent.homeId);
-              const baseX = home ? home.x + home.width + 5 + Math.floor(Math.random() * 30) : agent.x + 20;
-              const baseY = home ? home.y + Math.floor(Math.random() * 30) : agent.y - 20;
-              const BLOCK_SIZE = 4; // 4px per block
+            const agentId = agent.id;
+            const agentCopy = { ...agent };
+            // 비동기 AI 블록아트 생성
+            fetch("/api/block-art", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                agentName: agentCopy.name,
+                personality: agentCopy.personality,
+                mood: agentCopy.title || "평범한 하루",
+              }),
+            }).then(r => r.json()).then(data => {
+              if (!data.grid || !data.name) return;
+              const grid: string[][] = data.grid;
+              let blockCount = 0;
+              grid.forEach((row: string[]) => row.forEach((cell: string) => { if (cell !== ".") blockCount++; }));
+              const totalCost = blockCount * 10_000;
+              // 비용 체크 (비동기이므로 다시 확인)
+              const currentAgent = agentsRef.current.find(a => a.id === agentId);
+              if (!currentAgent || currentAgent.coins < totalCost) return;
+              // 배치 위치: 집 근처
+              const home = VILLAGE_BUILDINGS.find(b => b.id === currentAgent.homeId);
+              const artCount = placedBlocksRef.current.filter(b => b.placedBy === agentId).length;
+              const artIndex = Math.floor(artCount / 30); // 작품마다 오프셋
+              const baseX = home ? home.x + home.width + 5 + (artIndex % 3) * 45 : currentAgent.x + 20;
+              const baseY = home ? home.y + Math.floor(artIndex / 3) * 45 : currentAgent.y - 20;
+              const BLOCK_SIZE = 4;
               const newBlocks: PlacedBlock[] = [];
-              template.pattern.forEach((row, ry) => {
-                row.forEach((cell, rx) => {
-                  if (cell !== " ") {
-                    const color = PATTERN_COLOR_MAP[cell] || "#ecf0f1";
-                    newBlocks.push({ x: baseX + rx * BLOCK_SIZE, y: baseY + ry * BLOCK_SIZE, color, placedBy: agent.id });
+              const colorMap = data.colors || {};
+              grid.forEach((row: string[], ry: number) => {
+                row.forEach((cell: string, rx: number) => {
+                  if (cell !== ".") {
+                    const color = colorMap[cell] || PATTERN_COLOR_MAP[cell] || "#ecf0f1";
+                    newBlocks.push({ x: baseX + rx * BLOCK_SIZE, y: baseY + ry * BLOCK_SIZE, color, placedBy: agentId });
                   }
                 });
               });
               placedBlocksRef.current = [...placedBlocksRef.current, ...newBlocks];
-              setConversationLog(prev => [`🧱 ${agent.emoji} ${agent.name}이(가) "${template.name}" 블록아트를 만들었다! (${blockCount}블록, -${formatCoins(totalCost)})`, ...prev].slice(0, 50));
-              bubblesRef.current = [...bubblesRef.current, { id: `block-${now}-${agent.id}`, agentId: agent.id, text: `🧱 ${template.name}!`, timestamp: now, duration: 5000 }];
-              return { ...agent, coins: agent.coins - totalCost };
-            }
+              agentsRef.current = agentsRef.current.map(ag =>
+                ag.id === agentId ? { ...ag, coins: ag.coins - totalCost } : ag
+              );
+              setConversationLog(prev => [`🧱 ${currentAgent.emoji} ${currentAgent.name}이(가) "${data.name}" 블록아트를 만들었다! (${blockCount}블록, -${formatCoins(totalCost)})`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `block-${Date.now()}-${agentId}`, agentId, text: `🧱 ${data.name}!`, timestamp: Date.now(), duration: 5000 }];
+              setBubbles([...bubblesRef.current]);
+            }).catch(() => {});
           }
 
           return agent;
