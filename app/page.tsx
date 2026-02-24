@@ -116,6 +116,7 @@ export default function VillagePage() {
   const villageLawsRef = useRef<VillageLaw[]>([]);
   const [worldObjects, setWorldObjects] = useState<WorldObject[]>([]);
   const [showObjectPicker, setShowObjectPicker] = useState(false);
+  const [showLawsPopup, setShowLawsPopup] = useState(false);
   const worldObjectsRef = useRef<WorldObject[]>([]);
   const OBJECT_INTERACT_DISTANCE = 50;
 
@@ -1287,20 +1288,12 @@ export default function VillagePage() {
             {festivalUntil && Date.now() < festivalUntil && <div className="text-xs text-pink-400 font-bold mb-2 text-center animate-pulse">🎊 축제 진행중! 🎊</div>}
             {/* 이장 */}
             {(() => { const mayor = agents.find(a => a.isMayor); return mayor ? <div className="text-xs text-amber-300 mb-2">🏛️ 이장: {mayor.emoji} {mayor.name} (평판 {mayor.reputation})</div> : <div className="text-xs text-zinc-600 italic mb-2">이장 미선출</div>; })()}
-            {/* 법률 목록 */}
+            {/* 법률 */}
             {villageLaws.length > 0 ? (
-              <div className="space-y-1.5 max-h-[80px] overflow-y-auto mb-2">
-                <div className="text-xs text-emerald-500 font-bold mb-1">📜 제정된 법률 ({villageLaws.length}개)</div>
-                {villageLaws.map((law) => (
-                  <div key={law.id} className="text-xs bg-emerald-950/30 border border-emerald-800/30 rounded px-2 py-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-emerald-400 font-bold">{law.emoji} {law.name}</span>
-                      <span className="text-zinc-500 text-[10px]">by {law.proposedBy}</span>
-                    </div>
-                    <div className="text-emerald-600 text-[10px]">{law.description}</div>
-                  </div>
-                ))}
-              </div>
+              <button onClick={() => setShowLawsPopup(true)} className="text-xs bg-emerald-950/30 border border-emerald-800/30 rounded px-2 py-1.5 mb-2 w-full text-left hover:bg-emerald-900/40 transition-all cursor-pointer">
+                <span className="text-emerald-400 font-bold">📜 제정된 법률 ({villageLaws.length}개)</span>
+                <span className="text-zinc-500 ml-1 text-[10px]">클릭하여 보기</span>
+              </button>
             ) : (
               <div className="text-xs text-zinc-600 italic mb-2">📜 제정된 법률이 없습니다</div>
             )}
@@ -1368,7 +1361,38 @@ export default function VillagePage() {
               </button>
             </div>
           </div>
+              {/* 법률 팝업 */}
+      {showLawsPopup && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowLawsPopup(false)}>
+          <div className="bg-zinc-900 border border-emerald-700/50 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-emerald-400">📜 마을 법률</h2>
+              <button onClick={() => setShowLawsPopup(false)} className="text-zinc-500 hover:text-white text-xl">✕</button>
+            </div>
+            {villageLaws.length === 0 ? (
+              <p className="text-zinc-500 text-sm italic text-center py-8">아직 제정된 법률이 없습니다</p>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {villageLaws.map((law, i) => (
+                  <div key={law.id} className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-emerald-400 font-bold text-sm">{law.emoji} {law.name}</span>
+                      <span className="text-zinc-500 text-xs">#{i + 1}</span>
+                    </div>
+                    <p className="text-emerald-300/80 text-xs mb-2">{law.description}</p>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                      <span>발의: {law.proposedBy}</span>
+                      <span>{new Date(law.passedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 text-center text-[10px] text-zinc-600">토론에서 법안을 상정하고 이장이 승인하면 법률이 됩니다</div>
+          </div>
         </div>
+      )}
+</div>
       </div>
     </div>
   );
