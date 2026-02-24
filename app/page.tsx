@@ -25,6 +25,9 @@ import {
   randomPosition,
   pickDestination,
   getBuildingName,
+  growUpBaby,
+  GROW_TIME_MS,
+  isFamily,
 } from "@/lib/village";
 import {
   CHARACTER_PALETTES,
@@ -242,7 +245,8 @@ export default function VillagePage() {
         // Update relationship
         const newMeetCount = rel.meetCount + 1;
         const oldStage = rel.stage;
-        const newStage = getRelationshipStage(newMeetCount, oldStage);
+        const familyCheck = isFamily(agentA, agentB);
+        const newStage = getRelationshipStage(newMeetCount, oldStage, familyCheck);
         const updatedRel: Relationship = { ...rel, meetCount: newMeetCount, stage: newStage };
         if (data.topic) updatedRel.lastTopics = [...updatedRel.lastTopics, data.topic].slice(-3);
         relationshipsRef.current.set(key, updatedRel);
@@ -372,6 +376,19 @@ export default function VillagePage() {
           }
         }
       }
+
+      // 아기 성장 체크 (3분 후 성인)
+      let grewUp = false;
+      agentsRef.current = agentsRef.current.map((agent) => {
+        if (agent.isBaby && agent.birthTime && now - agent.birthTime >= GROW_TIME_MS) {
+          grewUp = true;
+          const grown = growUpBaby(agent);
+          setConversationLog((prev) => [`🎓 ${agent.name}이(가) 성장하여 어른이 되었습니다! ${grown.emoji}`, ...prev].slice(0, 50));
+          bubblesRef.current = [...bubblesRef.current, { id: `grow-${now}-${agent.id}`, agentId: agent.id, text: "나 이제 어른이야! 🎓", timestamp: now, duration: 8000 }];
+          return grown;
+        }
+        return agent;
+      });
 
       bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
       setBubbles([...bubblesRef.current]);
@@ -657,6 +674,9 @@ export default function VillagePage() {
               {n}명
             </button>
           ))}
+          <span className="ml-2 px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
+            👥 인구: {agents.length}명
+          </span>
         </div>
       </div>
 

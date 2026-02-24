@@ -16,6 +16,9 @@ export interface Agent {
   destination: string | null; // building id or null
   homeId: string | null; // agent's home building id
   title?: string | null; // 명찰/칭호 (예: "마을 회장", "요리왕")
+  isBaby?: boolean; // 아기 여부
+  birthTime?: number; // 태어난 시간 (Date.now())
+  parentIds?: string[]; // 부모 ID들
 }
 
 export interface Relationship {
@@ -460,15 +463,30 @@ export function getConversationType(meetCount: number): "greeting" | "smalltalk"
 }
 
 // Relationship stage thresholds
-export function getRelationshipStage(meetCount: number, currentStage: Relationship["stage"]): Relationship["stage"] {
+export function getRelationshipStage(meetCount: number, currentStage: Relationship["stage"], isFamily: boolean = false): Relationship["stage"] {
   // Stage progression: stranger → acquaintance → friend → lover → married → parent
-  // Each stage requires minimum meet count AND previous stage
-  if (meetCount >= 20 && currentStage === "married") return "parent";
-  if (meetCount >= 15 && currentStage === "lover") return "married";
-  if (meetCount >= 10 && currentStage === "friend") return "lover";
-  if (meetCount >= 5 && currentStage === "acquaintance") return "friend";
-  if (meetCount >= 2 && currentStage === "stranger") return "acquaintance";
+  // 가족 관계면 friend까지만 진행 (부모-자식, 형제 결혼 방지)
+  if (isFamily && (currentStage === "friend" || currentStage === "lover" || currentStage === "married")) {
+    return currentStage === "friend" ? "friend" : currentStage;
+  }
+  // 빠른 진행 (마을 시뮬레이션에 맞게)
+  if (meetCount >= 10 && currentStage === "married") return "parent";
+  if (meetCount >= 8 && currentStage === "lover") return "married";
+  if (meetCount >= 5 && currentStage === "friend") return "lover";
+  if (meetCount >= 3 && currentStage === "acquaintance") return "friend";
+  if (meetCount >= 1 && currentStage === "stranger") return "acquaintance";
   return currentStage;
+}
+
+// 가족 관계 체크 (부모-자식 or 형제)
+export function isFamily(agentA: Agent, agentB: Agent): boolean {
+  // 부모-자식
+  if (agentA.parentIds?.includes(agentB.id) || agentB.parentIds?.includes(agentA.id)) return true;
+  // 형제 (같은 부모)
+  if (agentA.parentIds && agentB.parentIds && agentA.parentIds.length > 0 && agentB.parentIds.length > 0) {
+    return agentA.parentIds.some(p => agentB.parentIds!.includes(p));
+  }
+  return false;
 }
 
 export function getStageLabel(stage: Relationship["stage"]): string {
@@ -525,6 +543,35 @@ export function createBabyAgent(parentA: Agent, parentB: Agent): Omit<Agent, "x"
     state: "walking",
     talkingTo: null,
     homeId: parentA.homeId, // lives with parents
+    isBaby: true,
+    birthTime: Date.now(),
+    parentIds: [parentA.id, parentB.id],
+  };
+}
+
+// 아기 → 성인 성장 (GROW_TIME_MS 후)
+export const GROW_TIME_MS = 3 * 60 * 1000; // 3분 후 성인
+
+const ADULT_EMOJIS_M = ["🧑", "🧔", "👨‍🦱", "👨‍🦰"];
+const ADULT_EMOJIS_F = ["👩", "👩‍🦱", "👩‍🦰", "👱‍♀️"];
+const ADULT_PERSONALITIES = [
+  "활발하고 에너지 넘치는", "차분하고 사려 깊은", "창의적이고 독특한",
+  "사교적이고 따뜻한", "탐구적이고 호기심 많은", "낙천적이고 유머 있는",
+];
+
+export function growUpBaby(agent: Agent): Agent {
+  const isBoy = agent.emoji === "👦";
+  const emoji = isBoy
+    ? ADULT_EMOJIS_M[Math.floor(Math.random() * ADULT_EMOJIS_M.length)]
+    : ADULT_EMOJIS_F[Math.floor(Math.random() * ADULT_EMOJIS_F.length)];
+  const personalityTrait = ADULT_PERSONALITIES[Math.floor(Math.random() * ADULT_PERSONALITIES.length)];
+
+  return {
+    ...agent,
+    emoji,
+    isBaby: false,
+    speed: 1.8 + Math.random() * 1.0,
+    personality: `${agent.name}. ${personalityTrait} 성격. 마을에서 자란 2세대.`,
   };
 }
 
