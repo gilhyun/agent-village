@@ -12,6 +12,10 @@ import {
   MAP_HEIGHT,
   INTERACTION_DISTANCE,
   BUBBLE_DURATION,
+  VILLAGE_BUILDINGS,
+  Building,
+  Decoration,
+  generateDecorations,
   initializeAgents,
   newTarget,
   distance,
@@ -27,6 +31,10 @@ import {
   getFrame,
 } from "@/lib/sprites";
 
+// Viewport size (what you see on screen)
+const VIEWPORT_W = 800;
+const VIEWPORT_H = 600;
+
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -38,11 +46,18 @@ export default function VillagePage() {
   const [godMessage, setGodMessage] = useState("");
   const [isSendingDecree, setIsSendingDecree] = useState(false);
   const [lastDecree, setLastDecree] = useState<string | null>(null);
-  const [godEffect, setGodEffect] = useState(false); // sky + lightning effect
+  const [godEffect, setGodEffect] = useState(false);
   const [worldObjects, setWorldObjects] = useState<WorldObject[]>([]);
   const [showObjectPicker, setShowObjectPicker] = useState(false);
   const worldObjectsRef = useRef<WorldObject[]>([]);
   const OBJECT_INTERACT_DISTANCE = 50;
+
+  // Camera
+  const [cameraX, setCameraX] = useState(400); // Center of 1600 - 800/2
+  const [cameraY, setCameraY] = useState(300);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const cameraStart = useRef({ x: 0, y: 0 });
 
   const agentsRef = useRef<Agent[]>([]);
   const relationshipsRef = useRef<Map<string, Relationship>>(new Map());
@@ -50,6 +65,12 @@ export default function VillagePage() {
   const pendingChatsRef = useRef<Set<string>>(new Set());
   const animFrameRef = useRef<number>(0);
   const tickRef = useRef<number>(0);
+  const decorationsRef = useRef<Decoration[]>([]);
+
+  // Generate decorations once
+  useEffect(() => {
+    decorationsRef.current = generateDecorations();
+  }, []);
 
   // Initialize agents
   useEffect(() => {
@@ -59,7 +80,28 @@ export default function VillagePage() {
     agentsRef.current = initialized;
   }, [agentCount]);
 
-  // Spawn object into the world
+  // Camera drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    cameraStart.current = { x: cameraX, y: cameraY };
+  }, [cameraX, cameraY]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    const newX = Math.max(0, Math.min(MAP_WIDTH - VIEWPORT_W, cameraStart.current.x - dx));
+    const newY = Math.max(0, Math.min(MAP_HEIGHT - VIEWPORT_H, cameraStart.current.y - dy));
+    setCameraX(newX);
+    setCameraY(newY);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  // Spawn object
   const spawnObject = useCallback((obj: { name: string; emoji: string }) => {
     const newObj: WorldObject = {
       id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -72,250 +114,137 @@ export default function VillagePage() {
     worldObjectsRef.current = [...worldObjectsRef.current, newObj];
     setWorldObjects([...worldObjectsRef.current]);
     setShowObjectPicker(false);
-
-    // God effect
     setGodEffect(true);
     setTimeout(() => setGodEffect(false), 2000);
-
-    setConversationLog((prev) => [
-      `⚡ 신이 ${obj.emoji} ${obj.name}을(를) 마을에 내려놓았다`,
-      ...prev,
-    ].slice(0, 50));
+    setConversationLog((prev) => [`⚡ 신이 ${obj.emoji} ${obj.name}을(를) 마을에 내려놓았다`, ...prev].slice(0, 50));
   }, []);
 
-  // Send God's decree
+  // God decree
   const sendDecree = useCallback(async () => {
     if (!godMessage.trim() || isSendingDecree) return;
     setIsSendingDecree(true);
     setLastDecree(godMessage);
-
-    // Add god's message to log
-    setConversationLog((prev) => [
-      `⚡ 신의 목소리: "${godMessage}"`,
-      ...prev,
-    ].slice(0, 50));
-
-    // Trigger sky + lightning effect
+    setConversationLog((prev) => [`⚡ 신의 목소리: "${godMessage}"`, ...prev].slice(0, 50));
     setGodEffect(true);
     setTimeout(() => setGodEffect(false), 4000);
 
-    // Show god's message as a special bubble on all agents
     agentsRef.current.forEach((agent) => {
-      const bubble: ChatBubble = {
-        id: `god-${Date.now()}-${agent.id}`,
-        agentId: agent.id,
-        text: "⚡ !?",
-        timestamp: Date.now(),
-        duration: 3000,
-      };
-      bubblesRef.current = [...bubblesRef.current, bubble];
+      bubblesRef.current = [...bubblesRef.current, {
+        id: `god-${Date.now()}-${agent.id}`, agentId: agent.id, text: "⚡ !?", timestamp: Date.now(), duration: 3000,
+      }];
     });
     setBubbles([...bubblesRef.current]);
 
     try {
       const res = await fetch("/api/god", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: godMessage,
-          agents: agentsRef.current.map((a) => ({
-            name: a.name,
-            emoji: a.emoji,
-            personality: a.personality,
-          })),
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: godMessage, agents: agentsRef.current.map((a) => ({ name: a.name, emoji: a.emoji, personality: a.personality })) }),
       });
-
       const data = await res.json();
-
       if (data.reactions) {
         data.reactions.forEach((r: { agentName: string; emoji: string; reaction: string }, i: number) => {
           setTimeout(() => {
             const agent = agentsRef.current.find((a) => a.name === r.agentName);
             if (agent) {
-              const bubble: ChatBubble = {
-                id: `god-react-${Date.now()}-${i}`,
-                agentId: agent.id,
-                text: r.reaction,
-                timestamp: Date.now(),
-                duration: BUBBLE_DURATION,
-              };
-              bubblesRef.current = [...bubblesRef.current, bubble];
+              bubblesRef.current = [...bubblesRef.current, { id: `god-react-${Date.now()}-${i}`, agentId: agent.id, text: r.reaction, timestamp: Date.now(), duration: BUBBLE_DURATION }];
               setBubbles([...bubblesRef.current]);
-
-              setConversationLog((prev) => [
-                `${r.emoji} ${r.agentName}: ${r.reaction}`,
-                ...prev,
-              ].slice(0, 50));
+              setConversationLog((prev) => [`${r.emoji} ${r.agentName}: ${r.reaction}`, ...prev].slice(0, 50));
             }
           }, i * 1500);
         });
       }
-    } catch (e) {
-      console.error("God decree failed:", e);
-    }
-
+    } catch (e) { console.error("God decree failed:", e); }
     setGodMessage("");
     setIsSendingDecree(false);
   }, [godMessage, isSendingDecree]);
 
-  // Request conversation from AI
+  // Request conversation
   const requestConversation = useCallback(async (agentA: Agent, agentB: Agent, rel: Relationship) => {
     const key = relationshipKey(agentA.id, agentB.id);
     if (pendingChatsRef.current.has(key)) return;
     pendingChatsRef.current.add(key);
-
     const convType = getConversationType(rel.meetCount);
 
     try {
       const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentA: { id: agentA.id, name: agentA.name, emoji: agentA.emoji, personality: agentA.personality },
           agentB: { id: agentB.id, name: agentB.name, emoji: agentB.emoji, personality: agentB.personality },
-          conversationType: convType,
-          meetCount: rel.meetCount,
+          conversationType: convType, meetCount: rel.meetCount,
         }),
       });
-
       const data = await res.json();
-
       if (data.messages && data.messages.length > 0) {
-        // Show messages as bubbles sequentially
         data.messages.forEach((msg: { speaker: string; text: string }, i: number) => {
           setTimeout(() => {
             const speakerAgent = agentsRef.current.find((a) => a.name === msg.speaker);
             if (speakerAgent) {
-              const bubble: ChatBubble = {
-                id: `${Date.now()}-${i}-${Math.random()}`,
-                agentId: speakerAgent.id,
-                text: msg.text,
-                timestamp: Date.now(),
-                duration: BUBBLE_DURATION,
-              };
-              bubblesRef.current = [...bubblesRef.current, bubble];
+              bubblesRef.current = [...bubblesRef.current, { id: `${Date.now()}-${i}-${Math.random()}`, agentId: speakerAgent.id, text: msg.text, timestamp: Date.now(), duration: BUBBLE_DURATION }];
               setBubbles([...bubblesRef.current]);
-
-              setConversationLog((prev) => [
-                `${speakerAgent.emoji} ${speakerAgent.name}: ${msg.text}`,
-                ...prev,
-              ].slice(0, 50));
+              setConversationLog((prev) => [`${speakerAgent.emoji} ${speakerAgent.name}: ${msg.text}`, ...prev].slice(0, 50));
             }
-          }, i * 2000); // 2 second delay between messages
+          }, i * 2000);
         });
-
-        // Update relationship
-        const updatedRel = { ...rel };
-        updatedRel.meetCount += 1;
-        if (data.topic) {
-          updatedRel.lastTopics = [...updatedRel.lastTopics, data.topic].slice(-3);
-        }
+        const updatedRel = { ...rel, meetCount: rel.meetCount + 1 };
+        if (data.topic) updatedRel.lastTopics = [...updatedRel.lastTopics, data.topic].slice(-3);
         relationshipsRef.current.set(key, updatedRel);
         setRelationships(new Map(relationshipsRef.current));
 
-        // Already in talking state from collision detection
-        // Set timer to release them after conversation ends
         const totalDuration = data.messages.length * 2000 + BUBBLE_DURATION;
-
         setTimeout(() => {
           agentsRef.current = agentsRef.current.map((a) => {
             if (a.id === agentA.id || a.id === agentB.id) {
-              const target = newTarget();
-              return { ...a, state: "walking" as const, talkingTo: null, ...target };
+              return { ...a, state: "walking" as const, talkingTo: null, ...newTarget() };
             }
             return a;
           });
           pendingChatsRef.current.delete(key);
         }, totalDuration);
-      } else {
-        pendingChatsRef.current.delete(key);
-      }
-    } catch {
-      pendingChatsRef.current.delete(key);
-    }
+      } else { pendingChatsRef.current.delete(key); }
+    } catch { pendingChatsRef.current.delete(key); }
   }, []);
 
   // Game loop
   useEffect(() => {
     if (!isRunning || agents.length === 0) return;
-
     const gameLoop = () => {
       const now = Date.now();
       tickRef.current += 1;
 
-      // Update agent positions
       agentsRef.current = agentsRef.current.map((agent) => {
         if (agent.state === "talking") return agent;
-
         const dx = agent.targetX - agent.x;
         const dy = agent.targetY - agent.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 5) {
-          // Reached target, pick new one
-          const target = newTarget();
-          return { ...agent, ...target };
-        }
-
-        const moveX = (dx / dist) * agent.speed;
-        const moveY = (dy / dist) * agent.speed;
-
-        return {
-          ...agent,
-          x: agent.x + moveX,
-          y: agent.y + moveY,
-        };
+        if (dist < 5) return { ...agent, ...newTarget() };
+        return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
       });
 
-      // Check for nearby agents
       for (let i = 0; i < agentsRef.current.length; i++) {
         for (let j = i + 1; j < agentsRef.current.length; j++) {
           const a = agentsRef.current[i];
           const b = agentsRef.current[j];
-
           if (a.state === "talking" || b.state === "talking") continue;
-
           const dist = distance(a, b);
           if (dist < INTERACTION_DISTANCE) {
             const key = relationshipKey(a.id, b.id);
             if (!pendingChatsRef.current.has(key)) {
               let rel = relationshipsRef.current.get(key);
-              if (!rel) {
-                rel = { agentA: a.id, agentB: b.id, meetCount: 0, lastTopics: [] };
-                relationshipsRef.current.set(key, rel);
-              }
-
-              // 부딪힘! 즉시 멈추고 서로 마주보게
-              const midX = (a.x + b.x) / 2;
-              const midY = (a.y + b.y) / 2;
+              if (!rel) { rel = { agentA: a.id, agentB: b.id, meetCount: 0, lastTopics: [] }; relationshipsRef.current.set(key, rel); }
+              const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
               const angle = Math.atan2(b.y - a.y, b.x - a.x);
-              const faceDistance = 25;
               agentsRef.current = agentsRef.current.map((ag) => {
-                if (ag.id === a.id) return {
-                  ...ag,
-                  x: midX - Math.cos(angle) * faceDistance,
-                  y: midY - Math.sin(angle) * faceDistance,
-                  state: "talking" as const,
-                  talkingTo: b.id,
-                };
-                if (ag.id === b.id) return {
-                  ...ag,
-                  x: midX + Math.cos(angle) * faceDistance,
-                  y: midY + Math.sin(angle) * faceDistance,
-                  state: "talking" as const,
-                  talkingTo: a.id,
-                };
+                if (ag.id === a.id) return { ...ag, x: midX - Math.cos(angle) * 25, y: midY - Math.sin(angle) * 25, state: "talking" as const, talkingTo: b.id };
+                if (ag.id === b.id) return { ...ag, x: midX + Math.cos(angle) * 25, y: midY + Math.sin(angle) * 25, state: "talking" as const, talkingTo: a.id };
                 return ag;
               });
-
               requestConversation(a, b, rel);
             }
           }
         }
       }
 
-      // Check agents near world objects
       for (const agent of agentsRef.current) {
         if (agent.state === "talking") continue;
         for (const obj of worldObjectsRef.current) {
@@ -324,53 +253,26 @@ export default function VillagePage() {
             const objKey = `obj-${agent.id}-${obj.id}`;
             if (!pendingChatsRef.current.has(objKey)) {
               pendingChatsRef.current.add(objKey);
-
-              // Agent reacts to the object
-              fetch("/api/react-object", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  agent: { name: agent.name, emoji: agent.emoji, personality: agent.personality },
-                  object: { name: obj.name, emoji: obj.emoji },
-                }),
-              })
+              fetch("/api/react-object", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agent: { name: agent.name, emoji: agent.emoji, personality: agent.personality }, object: { name: obj.name, emoji: obj.emoji } }) })
                 .then((r) => r.json())
                 .then((data) => {
                   if (data.reaction) {
-                    const bubble: ChatBubble = {
-                      id: `obj-react-${Date.now()}-${Math.random()}`,
-                      agentId: agent.id,
-                      text: data.reaction,
-                      timestamp: Date.now(),
-                      duration: BUBBLE_DURATION,
-                    };
-                    bubblesRef.current = [...bubblesRef.current, bubble];
+                    bubblesRef.current = [...bubblesRef.current, { id: `obj-react-${Date.now()}-${Math.random()}`, agentId: agent.id, text: data.reaction, timestamp: Date.now(), duration: BUBBLE_DURATION }];
                     setBubbles([...bubblesRef.current]);
-
-                    setConversationLog((prev) => [
-                      `${agent.emoji} ${agent.name}: ${data.reaction} (${obj.emoji} 발견)`,
-                      ...prev,
-                    ].slice(0, 50));
+                    setConversationLog((prev) => [`${agent.emoji} ${agent.name}: ${data.reaction} (${obj.emoji} 발견)`, ...prev].slice(0, 50));
                   }
-                  // Cooldown before reacting to same object again
                   setTimeout(() => pendingChatsRef.current.delete(objKey), 30000);
-                })
-                .catch(() => pendingChatsRef.current.delete(objKey));
+                }).catch(() => pendingChatsRef.current.delete(objKey));
             }
           }
         }
       }
 
-      // Clean old bubbles
-      bubblesRef.current = bubblesRef.current.filter(
-        (b) => now - b.timestamp < b.duration
-      );
+      bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
       setBubbles([...bubblesRef.current]);
-
       setAgents([...agentsRef.current]);
       animFrameRef.current = requestAnimationFrame(gameLoop);
     };
-
     animFrameRef.current = requestAnimationFrame(gameLoop);
     return () => cancelAnimationFrame(animFrameRef.current);
   }, [isRunning, agents.length, requestConversation]);
@@ -382,411 +284,295 @@ export default function VillagePage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear
-    ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    ctx.clearRect(0, 0, VIEWPORT_W, VIEWPORT_H);
+    ctx.save();
+    ctx.translate(-cameraX, -cameraY);
 
-    // Draw grass background (changes color during god effect)
+    // Background
+    ctx.fillStyle = godEffect ? "#1a1028" : "#1a2e1a";
+    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+    // God lightning
     if (godEffect) {
-      // Dark purple sky effect
-      ctx.fillStyle = "#1a1028";
-      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-
-      // Lightning bolts
-      const drawLightning = (startX: number, startY: number) => {
+      const drawLightning = (startX: number) => {
         ctx.strokeStyle = `rgba(255, 255, 100, ${0.5 + Math.random() * 0.5})`;
         ctx.lineWidth = 2 + Math.random() * 2;
-        ctx.shadowColor = "#fbbf24";
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        let x = startX;
-        let y = startY;
-        for (let i = 0; i < 8; i++) {
-          x += (Math.random() - 0.5) * 40;
-          y += 15 + Math.random() * 25;
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.moveTo(startX, 0);
+        let x = startX, y = 0;
+        for (let i = 0; i < 12; i++) { x += (Math.random() - 0.5) * 50; y += 20 + Math.random() * 30; ctx.lineTo(x, y); }
+        ctx.stroke(); ctx.shadowBlur = 0;
       };
-
-      // Random lightning positions
-      if (Math.random() > 0.3) {
-        drawLightning(100 + Math.random() * 600, 0);
-      }
-      if (Math.random() > 0.5) {
-        drawLightning(200 + Math.random() * 400, 0);
-      }
-
-      // Ambient flash overlay
-      ctx.fillStyle = `rgba(255, 255, 200, ${Math.random() * 0.08})`;
-      ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-    } else {
-      ctx.fillStyle = "#1a2e1a";
+      if (Math.random() > 0.3) drawLightning(200 + Math.random() * 1200);
+      if (Math.random() > 0.5) drawLightning(400 + Math.random() * 800);
+      ctx.fillStyle = `rgba(255, 255, 200, ${Math.random() * 0.06})`;
       ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
     }
 
-    // Draw grid dots
+    // Grid dots
     ctx.fillStyle = godEffect ? "#2a2040" : "#2a3e2a";
-    for (let x = 0; x < MAP_WIDTH; x += 30) {
-      for (let y = 0; y < MAP_HEIGHT; y += 30) {
-        ctx.beginPath();
-        ctx.arc(x, y, 1, 0, Math.PI * 2);
-        ctx.fill();
+    for (let x = 0; x < MAP_WIDTH; x += 40) {
+      for (let y = 0; y < MAP_HEIGHT; y += 40) {
+        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
       }
     }
 
-    // Draw paths
+    // Paths between buildings
     ctx.strokeStyle = godEffect ? "#3a2850" : "#3a4e3a";
-    ctx.lineWidth = 12;
-    ctx.beginPath();
-    ctx.moveTo(0, MAP_HEIGHT / 2);
-    ctx.lineTo(MAP_WIDTH, MAP_HEIGHT / 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(MAP_WIDTH / 2, 0);
-    ctx.lineTo(MAP_WIDTH / 2, MAP_HEIGHT);
-    ctx.stroke();
-
-    // Draw some decorations (trees)
-    const trees = [
-      [100, 100], [700, 100], [100, 500], [700, 500],
-      [400, 150], [200, 300], [600, 400], [350, 450],
-    ];
-    trees.forEach(([tx, ty]) => {
-      ctx.fillStyle = godEffect ? "#3d2a5d" : "#2d5a2d";
-      ctx.beginPath();
-      ctx.arc(tx, ty, 15, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = godEffect ? "#2a1a4a" : "#1a3a1a";
-      ctx.beginPath();
-      ctx.arc(tx, ty, 10, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.lineWidth = 14;
+    const plaza = VILLAGE_BUILDINGS.find(b => b.id === "plaza")!;
+    const plazaCX = plaza.x + plaza.width / 2;
+    const plazaCY = plaza.y + plaza.height / 2;
+    VILLAGE_BUILDINGS.forEach((b) => {
+      if (b.id === "plaza") return;
+      const bCX = b.x + b.width / 2;
+      const bCY = b.y + b.height / 2;
+      ctx.beginPath(); ctx.moveTo(plazaCX, plazaCY); ctx.lineTo(bCX, bCY); ctx.stroke();
     });
 
-    // Draw world objects
-    worldObjects.forEach((obj) => {
-      // Glow effect
-      ctx.shadowColor = "#fbbf24";
-      ctx.shadowBlur = 8;
+    // Decorations (flowers, bushes, rocks, animals)
+    decorationsRef.current.forEach((d) => {
+      ctx.font = d.type === "cow" ? "24px serif" : d.type === "bush" ? "16px serif" : d.type === "rock" ? "14px serif" : "10px serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(d.emoji, d.x, d.y);
+    });
 
-      // Object circle background
-      ctx.fillStyle = "rgba(251, 191, 36, 0.15)";
+    // Buildings
+    VILLAGE_BUILDINGS.forEach((b) => {
+      // Wall
+      ctx.fillStyle = godEffect ? "#2a2040" : b.wallColor;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+      ctx.strokeStyle = "rgba(0,0,0,0.3)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+      // Roof (triangle)
+      ctx.fillStyle = godEffect ? "#3a2060" : b.roofColor;
       ctx.beginPath();
-      ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
+      ctx.moveTo(b.x - 8, b.y);
+      ctx.lineTo(b.x + b.width / 2, b.y - 25);
+      ctx.lineTo(b.x + b.width + 8, b.y);
+      ctx.closePath();
       ctx.fill();
 
-      ctx.shadowBlur = 0;
+      // Door
+      ctx.fillStyle = "#92400e";
+      ctx.fillRect(b.x + b.width / 2 - 6, b.y + b.height - 18, 12, 18);
 
-      // Emoji
-      ctx.font = "24px serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(obj.emoji, obj.x, obj.y);
+      // Window
+      if (b.width >= 80) {
+        ctx.fillStyle = "#fef9c3";
+        ctx.fillRect(b.x + 10, b.y + 12, 12, 12);
+        ctx.fillRect(b.x + b.width - 22, b.y + 12, 12, 12);
+        ctx.strokeStyle = "#92400e";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(b.x + 10, b.y + 12, 12, 12);
+        ctx.strokeRect(b.x + b.width - 22, b.y + 12, 12, 12);
+      }
 
-      // Label
+      // Emoji + name
+      ctx.font = "16px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(b.emoji, b.x + b.width / 2, b.y - 35);
       ctx.font = "bold 9px sans-serif";
-      ctx.fillStyle = "#fbbf24";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height + 14);
+    });
+
+    // World objects
+    worldObjects.forEach((obj) => {
+      ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 8;
+      ctx.fillStyle = "rgba(251, 191, 36, 0.15)";
+      ctx.beginPath(); ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.font = "24px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(obj.emoji, obj.x, obj.y);
+      ctx.font = "bold 9px sans-serif"; ctx.fillStyle = "#fbbf24";
       ctx.fillText(obj.name, obj.x, obj.y + 24);
     });
 
-    // Draw agents (pixel art sprites)
+    // Agents
     const tick = tickRef.current;
     agents.forEach((agent) => {
       const palette = CHARACTER_PALETTES[agent.id] || CHARACTER_PALETTES["agent-1"];
       const frame = getFrame(agent.state, tick);
-
-      // Determine facing direction based on movement
       const flip = agent.targetX < agent.x;
 
-      // Shadow
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath();
       ctx.ellipse(agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 2, 12, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw sprite
       drawSprite(ctx, frame, palette, agent.x, agent.y, PIXEL_SIZE, flip);
 
-      // Talking glow
       if (agent.state === "talking") {
-        ctx.strokeStyle = "rgba(251, 191, 36, 0.6)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        const spriteW = SPRITE_WIDTH * PIXEL_SIZE;
-        const spriteH = SPRITE_HEIGHT * PIXEL_SIZE;
-        ctx.roundRect(agent.x - spriteW / 2 - 3, agent.y - spriteH / 2 - 3, spriteW + 6, spriteH + 6, 4);
-        ctx.stroke();
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.6)"; ctx.lineWidth = 2;
+        const sw = SPRITE_WIDTH * PIXEL_SIZE, sh = SPRITE_HEIGHT * PIXEL_SIZE;
+        ctx.beginPath(); ctx.roundRect(agent.x - sw / 2 - 3, agent.y - sh / 2 - 3, sw + 6, sh + 6, 4); ctx.stroke();
       }
 
-      // Name
-      ctx.font = "bold 10px sans-serif";
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
+      ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
-      // Talking indicator
       if (agent.state === "talking") {
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "#fbbf24"; ctx.font = "12px sans-serif";
         ctx.fillText("💬", agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 4, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2);
       }
     });
 
-    // Draw chat bubbles
+    // Chat bubbles
     bubbles.forEach((bubble) => {
       const agent = agents.find((a) => a.id === bubble.agentId);
       if (!agent) return;
-
-      const bubbleX = agent.x;
-      const bubbleY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 20;
-      const padding = 8;
-      const maxWidth = 180;
-
+      const bx = agent.x, by = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 20;
       ctx.font = "12px sans-serif";
-      const textWidth = Math.min(ctx.measureText(bubble.text).width + padding * 2, maxWidth);
-      const boxHeight = 24;
-
-      // Bubble background
+      const tw = Math.min(ctx.measureText(bubble.text).width + 16, 180);
       const opacity = Math.min(1, (bubble.duration - (Date.now() - bubble.timestamp)) / 1000);
       ctx.globalAlpha = opacity;
-
       ctx.fillStyle = "rgba(0,0,0,0.8)";
-      const rx = bubbleX - textWidth / 2;
-      const ry = bubbleY - boxHeight / 2;
-      ctx.beginPath();
-      ctx.roundRect(rx, ry, textWidth, boxHeight, 8);
-      ctx.fill();
-
-      // Bubble pointer
-      ctx.beginPath();
-      ctx.moveTo(bubbleX - 5, bubbleY + boxHeight / 2);
-      ctx.lineTo(bubbleX, bubbleY + boxHeight / 2 + 6);
-      ctx.lineTo(bubbleX + 5, bubbleY + boxHeight / 2);
-      ctx.fill();
-
-      // Text
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(bubble.text, bubbleX, bubbleY, maxWidth - padding * 2);
-
+      ctx.beginPath(); ctx.roundRect(bx - tw / 2, by - 12, tw, 24, 8); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(bx - 5, by + 12); ctx.lineTo(bx, by + 18); ctx.lineTo(bx + 5, by + 12); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(bubble.text, bx, by, 164);
       ctx.globalAlpha = 1;
     });
 
-    // Draw interaction lines between talking agents
+    // Talk lines
     agents.forEach((agent) => {
       if (agent.state === "talking" && agent.talkingTo) {
         const partner = agents.find((a) => a.id === agent.talkingTo);
         if (partner && agent.id < partner.id) {
-          ctx.strokeStyle = "rgba(251, 191, 36, 0.3)";
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(agent.x, agent.y);
-          ctx.lineTo(partner.x, partner.y);
-          ctx.stroke();
+          ctx.strokeStyle = "rgba(251, 191, 36, 0.3)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(agent.x, agent.y); ctx.lineTo(partner.x, partner.y); ctx.stroke();
           ctx.setLineDash([]);
         }
       }
     });
-  }, [agents, bubbles, godEffect, worldObjects]);
+
+    // Map border
+    ctx.strokeStyle = "#4a5e4a"; ctx.lineWidth = 4; ctx.setLineDash([]);
+    ctx.strokeRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+
+    ctx.restore();
+
+    // Minimap (bottom-left corner)
+    const mmW = 160, mmH = 120, mmX = 10, mmY = VIEWPORT_H - mmH - 10;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(mmX, mmY, mmW, mmH);
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
+    ctx.strokeRect(mmX, mmY, mmW, mmH);
+
+    // Buildings on minimap
+    VILLAGE_BUILDINGS.forEach((b) => {
+      ctx.fillStyle = b.roofColor;
+      ctx.fillRect(mmX + (b.x / MAP_WIDTH) * mmW, mmY + (b.y / MAP_HEIGHT) * mmH, Math.max(3, (b.width / MAP_WIDTH) * mmW), Math.max(3, (b.height / MAP_HEIGHT) * mmH));
+    });
+
+    // Agents on minimap
+    agents.forEach((a) => {
+      ctx.fillStyle = a.color;
+      ctx.beginPath();
+      ctx.arc(mmX + (a.x / MAP_WIDTH) * mmW, mmY + (a.y / MAP_HEIGHT) * mmH, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Viewport rect on minimap
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+    ctx.strokeRect(
+      mmX + (cameraX / MAP_WIDTH) * mmW,
+      mmY + (cameraY / MAP_HEIGHT) * mmH,
+      (VIEWPORT_W / MAP_WIDTH) * mmW,
+      (VIEWPORT_H / MAP_HEIGHT) * mmH,
+    );
+
+  }, [agents, bubbles, godEffect, worldObjects, cameraX, cameraY]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center p-4 md:p-8">
-      {/* Header */}
-      <div className="mb-6 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-          🏘️ Agent Village
-        </h1>
-        <p className="text-zinc-400 mt-2 text-sm">
-          AI 에이전트들이 마을에서 살아가는 모습을 관찰하세요
-        </p>
+      <div className="mb-4 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">🏘️ Agent Village</h1>
+        <p className="text-zinc-400 mt-1 text-sm">AI 에이전트들이 마을에서 살아가는 모습을 관찰하세요 · 드래그로 이동</p>
       </div>
 
-      {/* Controls */}
       <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
-        <button
-          onClick={() => setIsRunning(!isRunning)}
-          className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-            isRunning
-              ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
-              : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
-          }`}
-        >
+        <button onClick={() => setIsRunning(!isRunning)}
+          className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isRunning ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"}`}>
           {isRunning ? "⏸ 일시정지" : "▶️ 시작"}
         </button>
-
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <span>에이전트:</span>
           {[3, 4, 5].map((n) => (
-            <button
-              key={n}
-              onClick={() => {
-                setAgentCount(n);
-                setConversationLog([]);
-                setRelationships(new Map());
-                relationshipsRef.current = new Map();
-                bubblesRef.current = [];
-                pendingChatsRef.current = new Set();
-              }}
-              className={`px-3 py-1 rounded text-xs font-bold transition-all ${
-                agentCount === n
-                  ? "bg-indigo-500 text-white"
-                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-              }`}
-            >
+            <button key={n} onClick={() => { setAgentCount(n); setConversationLog([]); setRelationships(new Map()); relationshipsRef.current = new Map(); bubblesRef.current = []; pendingChatsRef.current = new Set(); }}
+              className={`px-3 py-1 rounded text-xs font-bold transition-all ${agentCount === n ? "bg-indigo-500 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
               {n}명
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Area */}
       <div className="flex flex-col lg:flex-row gap-4 w-full max-w-[1200px]">
-        {/* Canvas */}
         <div className="flex-1 flex justify-center">
-          <div className={`relative rounded-xl overflow-hidden border shadow-2xl transition-all duration-500 ${
-            godEffect 
-              ? "border-amber-500/60 shadow-amber-500/30" 
-              : "border-zinc-800"
-          }`}>
-            <canvas
-              ref={canvasRef}
-              width={MAP_WIDTH}
-              height={MAP_HEIGHT}
-              className="block"
-              style={{ maxWidth: "100%", height: "auto" }}
-            />
+          <div className={`relative rounded-xl overflow-hidden border shadow-2xl transition-all duration-500 ${godEffect ? "border-amber-500/60 shadow-amber-500/30" : "border-zinc-800"}`}
+            style={{ cursor: isDragging.current ? "grabbing" : "grab" }}>
+            <canvas ref={canvasRef} width={VIEWPORT_W} height={VIEWPORT_H} className="block"
+              onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+              style={{ maxWidth: "100%", height: "auto" }} />
           </div>
         </div>
 
-        {/* Sidebar: Conversation Log + Relationships */}
         <div className="w-full lg:w-[320px] flex flex-col gap-4">
-          {/* Relationships */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
-              🤝 관계도
-            </h3>
+            <h3 className="text-sm font-bold text-zinc-300 mb-3">🤝 관계도</h3>
             <div className="space-y-2 max-h-[150px] overflow-y-auto">
               {Array.from(relationships.values()).map((rel) => {
                 const a = agents.find((ag) => ag.id === rel.agentA);
                 const b = agents.find((ag) => ag.id === rel.agentB);
                 if (!a || !b) return null;
-                const level =
-                  rel.meetCount === 0 ? "모르는 사이" :
-                  rel.meetCount <= 2 ? "아는 사이" : "친한 사이";
-                const color =
-                  rel.meetCount === 0 ? "text-zinc-500" :
-                  rel.meetCount <= 2 ? "text-blue-400" : "text-emerald-400";
-                return (
-                  <div key={`${rel.agentA}-${rel.agentB}`} className="flex items-center justify-between text-xs">
-                    <span>
-                      {a.emoji} {a.name} ↔ {b.emoji} {b.name}
-                    </span>
-                    <span className={`font-bold ${color}`}>
-                      {level} ({rel.meetCount}회)
-                    </span>
-                  </div>
-                );
+                const level = rel.meetCount === 0 ? "모르는 사이" : rel.meetCount <= 2 ? "아는 사이" : "친한 사이";
+                const color = rel.meetCount === 0 ? "text-zinc-500" : rel.meetCount <= 2 ? "text-blue-400" : "text-emerald-400";
+                return (<div key={`${rel.agentA}-${rel.agentB}`} className="flex items-center justify-between text-xs"><span>{a.emoji} {a.name} ↔ {b.emoji} {b.name}</span><span className={`font-bold ${color}`}>{level} ({rel.meetCount}회)</span></div>);
               })}
-              {relationships.size === 0 && (
-                <p className="text-xs text-zinc-600 italic">아직 만난 에이전트가 없습니다...</p>
-              )}
+              {relationships.size === 0 && <p className="text-xs text-zinc-600 italic">아직 만난 에이전트가 없습니다...</p>}
             </div>
           </div>
 
-          {/* Conversation Log */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex-1">
-            <h3 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
-              💬 대화 기록
-            </h3>
+            <h3 className="text-sm font-bold text-zinc-300 mb-3">💬 대화 기록</h3>
             <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
               {conversationLog.map((log, i) => (
-                <div
-                  key={i}
-                  className={`text-xs border-l-2 pl-2 ${
-                    log.startsWith("⚡")
-                      ? "text-amber-400 border-amber-500 font-bold"
-                      : "text-zinc-400 border-zinc-700"
-                  }`}
-                >
-                  {log}
-                </div>
+                <div key={i} className={`text-xs border-l-2 pl-2 ${log.startsWith("⚡") ? "text-amber-400 border-amber-500 font-bold" : "text-zinc-400 border-zinc-700"}`}>{log}</div>
               ))}
-              {conversationLog.length === 0 && (
-                <p className="text-xs text-zinc-600 italic">
-                  에이전트들이 만나면 대화가 시작됩니다...
-                </p>
-              )}
+              {conversationLog.length === 0 && <p className="text-xs text-zinc-600 italic">에이전트들이 만나면 대화가 시작됩니다...</p>}
             </div>
           </div>
 
-          {/* God Mode Input */}
           <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900 border border-amber-700/30 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
-              ⚡ 신의 목소리
-            </h3>
-
-            {/* Object Spawner */}
+            <h3 className="text-sm font-bold text-amber-400 mb-3">⚡ 신의 목소리</h3>
             <div className="mb-3">
-              <button
-                onClick={() => setShowObjectPicker(!showObjectPicker)}
-                className="w-full px-3 py-2 text-xs font-bold rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/40 transition-all"
-              >
+              <button onClick={() => setShowObjectPicker(!showObjectPicker)} className="w-full px-3 py-2 text-xs font-bold rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/40 transition-all">
                 {showObjectPicker ? "✕ 닫기" : "🎁 오브젝트 소환"}
               </button>
               {showObjectPicker && (
                 <div className="mt-2 grid grid-cols-4 gap-1.5">
                   {SPAWNABLE_OBJECTS.map((obj) => (
-                    <button
-                      key={obj.name}
-                      onClick={() => spawnObject(obj)}
-                      className="flex flex-col items-center gap-0.5 p-2 rounded-lg bg-zinc-800/80 hover:bg-purple-600/30 border border-zinc-700 hover:border-purple-500/40 transition-all"
-                    >
-                      <span className="text-lg">{obj.emoji}</span>
-                      <span className="text-[10px] text-zinc-400">{obj.name}</span>
+                    <button key={obj.name} onClick={() => spawnObject(obj)} className="flex flex-col items-center gap-0.5 p-2 rounded-lg bg-zinc-800/80 hover:bg-purple-600/30 border border-zinc-700 hover:border-purple-500/40 transition-all">
+                      <span className="text-lg">{obj.emoji}</span><span className="text-[10px] text-zinc-400">{obj.name}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Active Objects Count */}
             {worldObjects.length > 0 && (
               <div className="mb-2 flex items-center justify-between text-xs text-purple-300/60">
                 <span>마을 오브젝트: {worldObjects.length}개</span>
-                <button
-                  onClick={() => {
-                    worldObjectsRef.current = [];
-                    setWorldObjects([]);
-                  }}
-                  className="text-red-400/60 hover:text-red-400 transition-colors"
-                >
-                  전부 제거
-                </button>
+                <button onClick={() => { worldObjectsRef.current = []; setWorldObjects([]); }} className="text-red-400/60 hover:text-red-400 transition-colors">전부 제거</button>
               </div>
             )}
-            {lastDecree && (
-              <div className="text-xs text-amber-300/60 mb-2 italic truncate">
-                마지막 명령: &quot;{lastDecree}&quot;
-              </div>
-            )}
+            {lastDecree && <div className="text-xs text-amber-300/60 mb-2 italic truncate">마지막 명령: &quot;{lastDecree}&quot;</div>}
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={godMessage}
-                onChange={(e) => setGodMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendDecree()}
-                placeholder="마을에 전할 말씀을..."
-                className="flex-1 bg-zinc-800/80 border border-amber-700/30 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20"
-                disabled={isSendingDecree}
-              />
-              <button
-                onClick={sendDecree}
-                disabled={isSendingDecree || !godMessage.trim()}
-                className="px-4 py-2 bg-amber-600/80 hover:bg-amber-500/80 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-bold rounded-lg transition-all"
-              >
+              <input type="text" value={godMessage} onChange={(e) => setGodMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendDecree()}
+                placeholder="마을에 전할 말씀을..." className="flex-1 bg-zinc-800/80 border border-amber-700/30 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50" disabled={isSendingDecree} />
+              <button onClick={sendDecree} disabled={isSendingDecree || !godMessage.trim()}
+                className="px-4 py-2 bg-amber-600/80 hover:bg-amber-500/80 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-bold rounded-lg transition-all">
                 {isSendingDecree ? "⏳" : "⚡"}
               </button>
             </div>

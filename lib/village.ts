@@ -110,10 +110,60 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
 ];
 
 // Map dimensions
-export const MAP_WIDTH = 800;
-export const MAP_HEIGHT = 600;
+export const MAP_WIDTH = 1600;
+export const MAP_HEIGHT = 1200;
 export const INTERACTION_DISTANCE = 30; // 진짜 부딪혀야 대화 (캐릭터 반지름 20 × 2 = 40 → 30이면 겹침)
 export const BUBBLE_DURATION = 5000; // 5 seconds
+
+// Buildings
+export interface Building {
+  id: string;
+  name: string;
+  emoji: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  roofColor: string;
+  wallColor: string;
+}
+
+export const VILLAGE_BUILDINGS: Building[] = [
+  { id: "house-minsu", name: "민수의 집", emoji: "🏠", x: 150, y: 150, width: 80, height: 60, roofColor: "#6366f1", wallColor: "#c7d2fe" },
+  { id: "house-jieun", name: "지은의 집", emoji: "🏠", x: 1350, y: 150, width: 80, height: 60, roofColor: "#ec4899", wallColor: "#fbcfe8" },
+  { id: "house-junho", name: "준호의 집", emoji: "🏠", x: 150, y: 950, width: 80, height: 60, roofColor: "#14b8a6", wallColor: "#ccfbf1" },
+  { id: "house-hana", name: "하나의 집", emoji: "🏠", x: 1350, y: 950, width: 80, height: 60, roofColor: "#f59e0b", wallColor: "#fef3c7" },
+  { id: "house-taehyun", name: "태현의 집", emoji: "🏠", x: 750, y: 100, width: 80, height: 60, roofColor: "#ef4444", wallColor: "#fecaca" },
+  { id: "cafe", name: "마을 카페", emoji: "☕", x: 500, y: 500, width: 100, height: 70, roofColor: "#92400e", wallColor: "#fde68a" },
+  { id: "library", name: "도서관", emoji: "📚", x: 1000, y: 500, width: 100, height: 70, roofColor: "#166534", wallColor: "#dcfce7" },
+  { id: "plaza", name: "마을 광장", emoji: "⛲", x: 720, y: 550, width: 160, height: 120, roofColor: "#6b7280", wallColor: "#e5e7eb" },
+  { id: "park", name: "공원", emoji: "🌳", x: 350, y: 850, width: 120, height: 80, roofColor: "#15803d", wallColor: "#86efac" },
+];
+
+// Decorations
+export interface Decoration {
+  x: number;
+  y: number;
+  type: "flower" | "grass" | "bush" | "cow" | "rock";
+  emoji: string;
+}
+
+export function generateDecorations(): Decoration[] {
+  const decos: Decoration[] = [];
+  for (let i = 0; i < 40; i++) {
+    decos.push({ x: 30 + Math.random() * (MAP_WIDTH - 60), y: 30 + Math.random() * (MAP_HEIGHT - 60), type: "flower", emoji: ["🌸", "🌼", "🌻", "💐"][Math.floor(Math.random() * 4)] });
+  }
+  for (let i = 0; i < 15; i++) {
+    decos.push({ x: 30 + Math.random() * (MAP_WIDTH - 60), y: 30 + Math.random() * (MAP_HEIGHT - 60), type: "bush", emoji: "🌿" });
+  }
+  for (let i = 0; i < 8; i++) {
+    decos.push({ x: 30 + Math.random() * (MAP_WIDTH - 60), y: 30 + Math.random() * (MAP_HEIGHT - 60), type: "rock", emoji: "🪨" });
+  }
+  decos.push({ x: 300, y: 750, type: "cow", emoji: "🐄" });
+  decos.push({ x: 1200, y: 350, type: "cow", emoji: "🐄" });
+  decos.push({ x: 900, y: 900, type: "cow", emoji: "🐑" });
+  return decos;
+}
 
 // Generate a random position within map bounds
 export function randomPosition() {
