@@ -393,6 +393,58 @@ export default function VillagePage() {
         const dy = agent.targetY - agent.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 8) {
+          // 남의 집에 도착 → 도둑질 이벤트 체크
+          const arrivedDest = agent.destination;
+          if (arrivedDest && arrivedDest.startsWith("house-") && arrivedDest !== agent.homeId && !agent.isBaby) {
+            const homeOwner = agentsRef.current.find(a => a.homeId === arrivedDest && a.id !== agent.id);
+            // 10% 확률로 도둑질 시도
+            if (homeOwner && Math.random() < 0.10) {
+              const stealAmount = Math.floor(homeOwner.coins * (0.05 + Math.random() * 0.10)); // 5~15%
+              if (stealAmount > 0) {
+                // 50% 확률로 들킴
+                const caught = Math.random() < 0.5;
+                if (caught) {
+                  // 들킴 → 벌금 (훔치려던 금액의 2배)
+                  const fine = Math.min(stealAmount * 2, agent.coins);
+                  agentsRef.current = agentsRef.current.map(ag => {
+                    if (ag.id === agent.id) return { ...ag, coins: ag.coins - fine };
+                    if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins + fine };
+                    return ag;
+                  });
+                  setConversationLog(prev => [`🚨 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 도둑질하다 들킴! 벌금 -${formatCoins(fine)}`, ...prev].slice(0, 50));
+                  bubblesRef.current = [
+                    ...bubblesRef.current,
+                    { id: `steal-c-${Date.now()}`, agentId: agent.id, text: "😱 들켰다!", timestamp: Date.now(), duration: 5000 },
+                    { id: `steal-o-${Date.now()}`, agentId: homeOwner.id, text: "🚨 도둑이야!", timestamp: Date.now(), duration: 5000 },
+                  ];
+                  // 관계 하락
+                  const relKey = relationshipKey(agent.id, homeOwner.id);
+                  const rel = relationshipsRef.current.get(relKey);
+                  if (rel && rel.meetCount > 0) {
+                    rel.meetCount = Math.max(0, rel.meetCount - 3);
+                    rel.stage = "stranger";
+                    relationshipsRef.current.set(relKey, { ...rel });
+                    setRelationships(new Map(relationshipsRef.current));
+                    setConversationLog(prev => [`💔 ${agent.name}와(과) ${homeOwner.name}의 관계가 크게 나빠졌습니다!`, ...prev].slice(0, 50));
+                  }
+                } else {
+                  // 성공!
+                  agentsRef.current = agentsRef.current.map(ag => {
+                    if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount };
+                    if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins - stealAmount };
+                    return ag;
+                  });
+                  setConversationLog(prev => [`🦹 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 💰${formatCoins(stealAmount)}을(를) 몰래 훔쳤다!`, ...prev].slice(0, 50));
+                  bubblesRef.current = [
+                    ...bubblesRef.current,
+                    { id: `steal-s-${Date.now()}`, agentId: agent.id, text: "🤫 쉿...", timestamp: Date.now(), duration: 4000 },
+                  ];
+                }
+                setBubbles([...bubblesRef.current]);
+              }
+            }
+          }
+
           // Arrived at destination — pick new one
           const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
           return { ...agent, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
