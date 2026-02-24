@@ -14,11 +14,11 @@ function getRelKey(a: string, b: string) {
 // ── 대화 주제 풀 (랜덤 선택) ──
 const TOPICS = {
   stranger: [
-    "날씨가 참 좋다고 말하며 인사해봐.",
-    "마을에 새로 온 건지 물어봐.",
-    "맛있는 거 먹고 왔냐고 물어봐.",
-    "어디 가는 길이냐고 물어봐.",
-    "오늘 뭐 하면서 보내고 있냐고 물어봐.",
+    "오늘 날씨 진짜 좋다면서 뭐 하고 다니냐고 물어봐.",
+    "이 마을에서 제일 맛있는 집이 어딘지 물어봐.",
+    "아까 길에서 재밌는 걸 봤다면서 이야기해봐.",
+    "요즘 뭐에 빠져있냐고 취미를 물어봐.",
+    "마을 카페 커피가 맛있다면서 추천해줘.",
   ],
   acquaintance: [
     "요즘 뭐 하면서 사는지 가벼운 근황 토크를 해.",
@@ -154,13 +154,20 @@ function getSystemPrompt(
 
 ## 중요 규칙
 - 반드시 한국어로 말해
-- 한 번에 1~2문장 (30자 이내로 짧게!)
+- 한 번에 1~2문장 (50자 이내)
 - 네 성격에 맞게 말해
 - 상대방 이름을 자연스럽게 불러
-- 이전 대화 내용을 기억하고 발전시켜
-- 절대 "안녕하세요" 같은 인사만 반복하지 마! 
-- 구체적인 주제로 대화해. 감정, 의견, 경험을 공유해.
-- 상대방 말에 리액션하고 꼬리 질문을 해.${decreeContext}`;
+
+## 절대 금지
+- "안녕하세요", "반갑습니다", "잘 지내세요?" 같은 뻔한 인사 금지!
+- 인사만 하고 끝내지 마!
+- 반드시 구체적인 이야기를 해야 해 (음식, 날씨, 취미, 고민, 경험, 장소 등)
+
+## 좋은 대화 예시
+❌ "안녕하세요, 민수 님!" (너무 뻔함)
+✅ "민수야, 카페에서 새로 나온 딸기 라떼 먹어봤어? 진짜 맛있더라!"
+✅ "어, 하나! 나 아까 도서관에서 추리소설 읽었는데 범인이 진짜 충격이야..."
+✅ "태현아, 요즘 그림 그리고 있어? 나도 배워보고 싶은데 어렵겠지?"${decreeContext}`;
 }
 
 export async function POST(req: Request) {
@@ -215,10 +222,10 @@ export async function POST(req: Request) {
         { role: "model", parts: [{ text: "네, 알겠습니다. 인사만 하지 않고 구체적인 주제로 대화하겠습니다." }] },
         ...historyA,
       ],
-      config: { temperature: 1.0, maxOutputTokens: 200 },
+      config: { temperature: 1.0, maxOutputTokens: 300 },
     });
 
-    const textA1 = (responseA1.text || "").trim().replace(/^["']|["']$/g, "");
+    const textA1 = (responseA1.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
     messages.push({ speaker: agentA.name, text: textA1 });
     historyA.push({ role: "model", parts: [{ text: textA1 }] });
 
@@ -237,10 +244,10 @@ export async function POST(req: Request) {
             { role: "model", parts: [{ text: "네, 알겠습니다." }] },
             ...historyA,
           ],
-          config: { temperature: 1.0, maxOutputTokens: 200 },
+          config: { temperature: 1.0, maxOutputTokens: 300 },
         });
 
-        const textA = (resA.text || "").trim().replace(/^["']|["']$/g, "");
+        const textA = (resA.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
         messages.push({ speaker: agentA.name, text: textA });
         historyA.push({ role: "model", parts: [{ text: textA }] });
       } else {
@@ -258,10 +265,10 @@ export async function POST(req: Request) {
             { role: "model", parts: [{ text: "네, 알겠습니다." }] },
             ...historyB,
           ],
-          config: { temperature: 1.0, maxOutputTokens: 200 },
+          config: { temperature: 1.0, maxOutputTokens: 300 },
         });
 
-        const textB = (resB.text || "").trim().replace(/^["']|["']$/g, "");
+        const textB = (resB.text || "").trim().replace(/^["']|["']$/g, "").slice(0, 80);
         messages.push({ speaker: agentB.name, text: textB });
         historyB.push({ role: "model", parts: [{ text: textB }] });
       }
