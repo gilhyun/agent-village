@@ -112,7 +112,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY">[] = 
 // Map dimensions
 export const MAP_WIDTH = 800;
 export const MAP_HEIGHT = 600;
-export const INTERACTION_DISTANCE = 60;
+export const INTERACTION_DISTANCE = 30; // 진짜 부딪혀야 대화 (캐릭터 반지름 20 × 2 = 40 → 30이면 겹침)
 export const BUBBLE_DURATION = 5000; // 5 seconds
 
 // Generate a random position within map bounds

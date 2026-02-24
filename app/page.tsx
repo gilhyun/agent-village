@@ -279,6 +279,18 @@ export default function VillagePage() {
                 rel = { agentA: a.id, agentB: b.id, meetCount: 0, lastTopics: [] };
                 relationshipsRef.current.set(key, rel);
               }
+
+              // 부딪힘! 서로를 바라보며 약간 거리를 벌림
+              const midX = (a.x + b.x) / 2;
+              const midY = (a.y + b.y) / 2;
+              const angle = Math.atan2(b.y - a.y, b.x - a.x);
+              const faceDistance = 25;
+              agentsRef.current = agentsRef.current.map((ag) => {
+                if (ag.id === a.id) return { ...ag, x: midX - Math.cos(angle) * faceDistance, y: midY - Math.sin(angle) * faceDistance };
+                if (ag.id === b.id) return { ...ag, x: midX + Math.cos(angle) * faceDistance, y: midY + Math.sin(angle) * faceDistance };
+                return ag;
+              });
+
               requestConversation(a, b, rel);
             }
           }
