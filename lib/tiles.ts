@@ -96,6 +96,22 @@ export function drawGrassTile(ctx: Ctx, x: number, y: number, s: number, variant
   if (v === 10) {
     px(ctx, x, y, s, 8, 2, GRASS.flower2);
   }
+
+  // 작은 돌멩이 (일부 변형에만)
+  if (v === 4) {
+    px(ctx, x, y, s, 12, 13, "#8a8a88");
+    px(ctx, x, y, s, 13, 13, "#9a9a98");
+  }
+  if (v === 9) {
+    px(ctx, x, y, s, 3, 14, "#7a7a78");
+  }
+  // 클로버 (일부 변형)
+  if (v === 1) {
+    px(ctx, x, y, s, 10, 11, "#3a8a28");
+    px(ctx, x, y, s, 11, 10, "#3a8a28");
+    px(ctx, x, y, s, 11, 12, "#3a8a28");
+    px(ctx, x, y, s, 12, 11, "#3a8a28");
+  }
 }
 
 // ── Tall Grass (풀숲 — darker, bushier) ──
@@ -158,6 +174,24 @@ export function drawDirtPathTile(ctx: Ctx, x: number, y: number, s: number, vari
     px(ctx, x, y, s, px_x, px_y, color);
   });
 
+  // 자갈 (pebbles)
+  if (v % 2 === 0) {
+    px(ctx, x, y, s, 4, 3, DIRT.pebble);
+    px(ctx, x, y, s, 5, 3, "#7a6838");
+    px(ctx, x, y, s, 11, 12, DIRT.pebble);
+    px(ctx, x, y, s, 12, 12, "#7a6838");
+  }
+  // 바퀴 자국 (wheel tracks)
+  if (v === 1 || v === 4) {
+    px(ctx, x, y, s, 5, 0, DIRT.dark);
+    px(ctx, x, y, s, 5, 4, DIRT.dark);
+    px(ctx, x, y, s, 5, 8, DIRT.dark);
+    px(ctx, x, y, s, 5, 12, DIRT.dark);
+    px(ctx, x, y, s, 10, 2, DIRT.dark);
+    px(ctx, x, y, s, 10, 6, DIRT.dark);
+    px(ctx, x, y, s, 10, 10, DIRT.dark);
+    px(ctx, x, y, s, 10, 14, DIRT.dark);
+  }
   // Edge highlight (top-left lighter)
   if (v < 3) {
     px(ctx, x, y, s, 0, 0, DIRT.light);
@@ -671,137 +705,242 @@ export function drawFurniture(ctx: Ctx, f: Furniture, bx: number, by: number) {
 }
 
 // ── Building interior rendering ──
-// ── 방 하나 렌더링 (벽+바닥+마루) ──
+// ── 방 하나 렌더링 (벽+바닥+마루) — 고퀄리티 ──
 function drawRoom(
   ctx: Ctx,
   rx: number, ry: number, rw: number, rh: number,
   wall: string, wallDark: string, wallMid: string, wallLight: string,
   isDark: boolean, hasDoor: boolean, isMain: boolean,
 ) {
-  const WALL_H = isMain ? 28 : 20;
-  const SIDE_W = 8;
-  const BOTTOM_H = 6;
+  const WALL_H = isMain ? 32 : 24;
+  const SIDE_W = 10;
+  const BOTTOM_H = 8;
   const doorGap = hasDoor ? 30 : 0;
 
-  // Drop shadow
-  ctx.fillStyle = "rgba(0,0,0,0.15)";
-  ctx.fillRect(rx + 4, ry + 4, rw, rh + WALL_H);
+  // Drop shadow (더 깊게)
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillRect(rx + 5, ry + 5, rw + 2, rh + WALL_H + 2);
 
-  // ── 뒷벽 ──
+  // ── 뒷벽 (벽돌 텍스처) ──
   const backY = ry - WALL_H;
+  // 벽 베이스
   ctx.fillStyle = wallMid;
   ctx.fillRect(rx, backY, rw, WALL_H);
-  ctx.fillStyle = wallLight;
-  ctx.fillRect(rx, backY, rw, 2);
-  ctx.fillStyle = wallDark;
-  ctx.fillRect(rx, ry - 1, rw, 1);
 
-  // 벽 패턴
-  ctx.strokeStyle = shadeColor(wall, -8);
-  ctx.lineWidth = 0.4;
-  for (let wy = backY + 7; wy < ry; wy += 8) {
-    ctx.beginPath(); ctx.moveTo(rx + 2, wy); ctx.lineTo(rx + rw - 2, wy); ctx.stroke();
-  }
-
-  // 창문
-  if (!isDark && rw > 60) {
-    const winCount = Math.max(1, Math.floor(rw / 55));
-    const winW = 16, winH = 12;
-    const winSpacing = rw / (winCount + 1);
-    for (let i = 1; i <= winCount; i++) {
-      const wx = rx + winSpacing * i - winW / 2;
-      const wy = backY + 4;
-      ctx.fillStyle = wallDark;
-      ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
-      ctx.fillStyle = "#88c8ee";
-      ctx.fillRect(wx, wy, winW, winH);
-      ctx.fillStyle = wallDark;
-      ctx.fillRect(wx + winW / 2 - 0.5, wy, 1, winH);
-      ctx.fillRect(wx, wy + winH / 2 - 0.5, winW, 1);
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillRect(wx + 1, wy + 1, winW / 2 - 2, winH / 2 - 2);
+  // 벽돌 패턴 (가로 줄 + 오프셋 세로)
+  const brickH = 6;
+  const brickW = 14;
+  const mortarColor = shadeColor(wall, -12);
+  ctx.strokeStyle = mortarColor;
+  ctx.lineWidth = 0.6;
+  for (let row = 0; row < Math.ceil(WALL_H / brickH); row++) {
+    const by = backY + row * brickH;
+    if (by >= ry) break;
+    // 가로 줄
+    ctx.beginPath(); ctx.moveTo(rx, by); ctx.lineTo(rx + rw, by); ctx.stroke();
+    // 세로 줄 (오프셋)
+    const offset = (row % 2) * (brickW / 2);
+    for (let bx = rx + offset; bx < rx + rw; bx += brickW) {
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by + brickH); ctx.stroke();
+    }
+    // 벽돌 색상 변화 (미묘하게)
+    if (row % 3 === 0) {
+      ctx.fillStyle = "rgba(0,0,0,0.03)";
+      ctx.fillRect(rx, by, rw, brickH);
     }
   }
 
-  // ── 바닥 (나무 마루) ──
-  const plankH = 9;
-  const plankColors = ["#c49670", "#b8885c", "#a87c50", "#c4986e", "#ae8458"];
-  const grainColor = "rgba(80,50,20,0.12)";
-  const gapColor = "rgba(50,30,10,0.3)";
+  // 벽 상단 처마 (cornice)
+  ctx.fillStyle = wallLight;
+  ctx.fillRect(rx - 2, backY - 3, rw + 4, 5);
+  ctx.fillStyle = shadeColor(wall, 30);
+  ctx.fillRect(rx - 2, backY - 3, rw + 4, 2);
+  ctx.fillStyle = wallDark;
+  ctx.fillRect(rx - 2, backY + 1, rw + 4, 1);
 
-  let plankIdx = Math.floor(rx * 0.1); // 방마다 다른 시작점
+  // 벽 하단 몰딩 (baseboard)
+  ctx.fillStyle = shadeColor(wall, -18);
+  ctx.fillRect(rx, ry - 3, rw, 3);
+  ctx.fillStyle = wallDark;
+  ctx.fillRect(rx, ry - 1, rw, 1);
+
+  // ── 창문 (더 디테일하게) ──
+  if (!isDark && rw > 55) {
+    const winCount = Math.max(1, Math.floor(rw / 55));
+    const winW = 18, winH = 14;
+    const winSpacing = rw / (winCount + 1);
+    for (let i = 1; i <= winCount; i++) {
+      const wx = rx + winSpacing * i - winW / 2;
+      const wy = backY + 8;
+      // 창틀 외곽
+      ctx.fillStyle = shadeColor(wall, -25);
+      ctx.fillRect(wx - 2, wy - 2, winW + 4, winH + 4);
+      // 창틀
+      ctx.fillStyle = "#f5f0e8";
+      ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
+      // 유리
+      const glassGr = ctx.createLinearGradient(wx, wy, wx + winW, wy + winH);
+      glassGr.addColorStop(0, "#a8d8f0");
+      glassGr.addColorStop(0.4, "#78b8e0");
+      glassGr.addColorStop(1, "#5898c8");
+      ctx.fillStyle = glassGr;
+      ctx.fillRect(wx, wy, winW, winH);
+      // 창살
+      ctx.fillStyle = "#f0ece4";
+      ctx.fillRect(wx + winW / 2 - 0.5, wy, 1.5, winH);
+      ctx.fillRect(wx, wy + winH / 2 - 0.5, winW, 1.5);
+      // 반사 하이라이트
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.fillRect(wx + 1, wy + 1, winW / 2 - 2, winH / 2 - 2);
+      // 창문 아래 선반
+      ctx.fillStyle = "#f5f0e8";
+      ctx.fillRect(wx - 2, wy + winH + 1, winW + 4, 2);
+    }
+  }
+
+  // ── 바닥 (나무 마루 — 더 리치하게) ──
+  const plankH = 8;
+  const plankColors = ["#c4986e", "#b88a5c", "#a87c4e", "#c49468", "#b08254", "#bc9060"];
+  const grainColor = "rgba(70,45,15,0.1)";
+  const gapColor = "rgba(40,25,8,0.3)";
+
+  let plankIdx = Math.floor(rx * 0.07);
   for (let py = ry; py < ry + rh; py += plankH) {
     const rowH = Math.min(plankH, ry + rh - py);
-    ctx.fillStyle = plankColors[plankIdx % plankColors.length];
+    const baseColor = plankColors[plankIdx % plankColors.length];
+    ctx.fillStyle = baseColor;
     ctx.fillRect(rx, py, rw, rowH);
 
+    // 나뭇결
     ctx.strokeStyle = grainColor;
     ctx.lineWidth = 0.4;
-    for (let g = 2; g < rowH - 1; g += 3) {
+    for (let g = 1; g < rowH; g += 2) {
       ctx.beginPath();
       ctx.moveTo(rx, py + g);
-      for (let gx = rx; gx < rx + rw; gx += 8) {
-        const wave = Math.sin((gx + plankIdx * 25) * 0.15) * 0.6;
-        ctx.lineTo(gx + 8, py + g + wave);
+      for (let gx = rx; gx < rx + rw; gx += 6) {
+        const wave = Math.sin((gx + plankIdx * 20) * 0.18) * 0.5;
+        ctx.lineTo(gx + 6, py + g + wave);
       }
       ctx.stroke();
     }
 
-    const plankW = 30 + (plankIdx % 3) * 10;
-    const offset = (plankIdx % 2) * 15;
+    // 판자 이음새
+    const plankW = 28 + (plankIdx % 4) * 8;
+    const offset = (plankIdx % 2) * 14;
     ctx.strokeStyle = gapColor;
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = 0.7;
     for (let sx = rx + offset + plankW; sx < rx + rw; sx += plankW) {
       ctx.beginPath(); ctx.moveTo(sx, py); ctx.lineTo(sx, py + rowH); ctx.stroke();
     }
 
+    // 판자 사이 경계
     ctx.fillStyle = gapColor;
-    ctx.fillRect(rx, py + rowH - 1, rw, 0.8);
+    ctx.fillRect(rx, py + rowH - 0.8, rw, 0.8);
     plankIdx++;
   }
 
-  // ── 좌벽 ──
-  ctx.fillStyle = shadeColor(wall, -5);
+  // 바닥 광택
+  const floorShine = ctx.createLinearGradient(rx, ry, rx + rw * 0.6, ry + rh);
+  floorShine.addColorStop(0, "rgba(255,240,210,0.08)");
+  floorShine.addColorStop(0.5, "rgba(255,255,255,0.02)");
+  floorShine.addColorStop(1, "rgba(0,0,0,0.04)");
+  ctx.fillStyle = floorShine;
+  ctx.fillRect(rx, ry, rw, rh);
+
+  // ── 좌벽 (입체 + 텍스처) ──
+  // 벽 면
+  ctx.fillStyle = shadeColor(wall, -3);
   ctx.fillRect(rx, backY, SIDE_W, WALL_H);
-  const lgr = ctx.createLinearGradient(rx, ry, rx + SIDE_W, ry);
-  lgr.addColorStop(0, wallDark);
-  lgr.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = lgr;
+  // 바닥 부분 벽
+  const lGr = ctx.createLinearGradient(rx, ry, rx + SIDE_W, ry);
+  lGr.addColorStop(0, shadeColor(wall, -20));
+  lGr.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = lGr;
   ctx.fillRect(rx, ry, SIDE_W, rh);
+  // 벽 안쪽 엣지
+  ctx.strokeStyle = shadeColor(wall, -25);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(rx + SIDE_W, ry); ctx.lineTo(rx + SIDE_W, ry + rh); ctx.stroke();
+  // 몰딩
+  ctx.fillStyle = shadeColor(wall, -15);
+  ctx.fillRect(rx + SIDE_W - 2, ry, 2, rh);
 
   // ── 우벽 ──
-  ctx.fillStyle = shadeColor(wall, -20);
+  ctx.fillStyle = shadeColor(wall, -18);
   ctx.fillRect(rx + rw - SIDE_W, backY, SIDE_W, WALL_H);
-  const rgr = ctx.createLinearGradient(rx + rw - SIDE_W, ry, rx + rw, ry);
-  rgr.addColorStop(0, "rgba(0,0,0,0)");
-  rgr.addColorStop(1, wallDark);
-  ctx.fillStyle = rgr;
+  const rGr = ctx.createLinearGradient(rx + rw - SIDE_W, ry, rx + rw, ry);
+  rGr.addColorStop(0, "rgba(0,0,0,0)");
+  rGr.addColorStop(1, shadeColor(wall, -25));
+  ctx.fillStyle = rGr;
   ctx.fillRect(rx + rw - SIDE_W, ry, SIDE_W, rh);
+  ctx.strokeStyle = shadeColor(wall, -25);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(rx + rw - SIDE_W, ry); ctx.lineTo(rx + rw - SIDE_W, ry + rh); ctx.stroke();
+  ctx.fillStyle = shadeColor(wall, -15);
+  ctx.fillRect(rx + rw - SIDE_W, ry, 2, rh);
 
-  // ── 앞벽 ──
+  // ── 앞벽 (문 포함, 더 두껍게) ──
   if (hasDoor) {
     const doorX = rx + rw / 2 - doorGap / 2;
+    // 앞벽 양쪽
     ctx.fillStyle = wall;
     ctx.fillRect(rx, ry + rh, doorX - rx, BOTTOM_H);
     ctx.fillRect(doorX + doorGap, ry + rh, rx + rw - doorX - doorGap, BOTTOM_H);
-    ctx.fillStyle = shadeColor(wall, 20);
+    // 벽돌 패턴 (앞벽에도)
+    ctx.strokeStyle = mortarColor;
+    ctx.lineWidth = 0.3;
+    ctx.beginPath(); ctx.moveTo(rx, ry + rh + 3); ctx.lineTo(doorX, ry + rh + 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(doorX + doorGap, ry + rh + 3); ctx.lineTo(rx + rw, ry + rh + 3); ctx.stroke();
+    // 문 — 나무문 느낌
+    const doorGr = ctx.createLinearGradient(doorX, ry + rh, doorX + doorGap, ry + rh);
+    doorGr.addColorStop(0, "#8a6020");
+    doorGr.addColorStop(0.5, "#a07830");
+    doorGr.addColorStop(1, "#7a5418");
+    ctx.fillStyle = doorGr;
     ctx.fillRect(doorX, ry + rh, doorGap, BOTTOM_H);
-    ctx.fillStyle = "#8b6914";
-    ctx.fillRect(doorX + 4, ry + rh + BOTTOM_H - 2, doorGap - 8, 2);
+    // 문 패널
+    ctx.strokeStyle = "rgba(60,35,10,0.3)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(doorX + 3, ry + rh + 1, doorGap / 2 - 4, BOTTOM_H - 2);
+    ctx.strokeRect(doorX + doorGap / 2 + 1, ry + rh + 1, doorGap / 2 - 4, BOTTOM_H - 2);
+    // 문 손잡이
+    ctx.fillStyle = "#d4a840";
+    ctx.beginPath(); ctx.arc(doorX + doorGap - 6, ry + rh + BOTTOM_H / 2, 1.5, 0, Math.PI * 2); ctx.fill();
+    // 문턱 계단
+    ctx.fillStyle = "#888";
+    ctx.fillRect(doorX - 2, ry + rh + BOTTOM_H, doorGap + 4, 3);
+    ctx.fillStyle = "#999";
+    ctx.fillRect(doorX - 4, ry + rh + BOTTOM_H + 3, doorGap + 8, 2);
   } else {
     ctx.fillStyle = wall;
     ctx.fillRect(rx, ry + rh, rw, BOTTOM_H);
+    ctx.strokeStyle = mortarColor;
+    ctx.lineWidth = 0.3;
+    ctx.beginPath(); ctx.moveTo(rx, ry + rh + 3); ctx.lineTo(rx + rw, ry + rh + 3); ctx.stroke();
   }
+  // 앞벽 상단 하이라이트
   ctx.fillStyle = wallLight;
   ctx.fillRect(rx, ry + rh, rw, 1);
+  // 앞벽 하단 그림자
+  ctx.fillStyle = wallDark;
+  ctx.fillRect(rx, ry + rh + BOTTOM_H - 1, rw, 1);
 
-  // ── 외곽 라인 ──
+  // ── 벽-바닥 경계 그림자 ──
+  const shadowGr = ctx.createLinearGradient(rx, ry, rx, ry + 10);
+  shadowGr.addColorStop(0, "rgba(0,0,0,0.12)");
+  shadowGr.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = shadowGr;
+  ctx.fillRect(rx + SIDE_W, ry, rw - SIDE_W * 2, 10);
+
+  // ── 외곽 라인 (더 선명하게) ──
   ctx.strokeStyle = wallDark;
   ctx.lineWidth = 1.5;
+  // 뒷벽 + 처마
   ctx.strokeRect(rx, backY, rw, WALL_H);
+  // 바닥 + 앞벽
   ctx.beginPath();
-  ctx.moveTo(rx, ry); ctx.lineTo(rx, ry + rh + BOTTOM_H);
-  ctx.lineTo(rx + rw, ry + rh + BOTTOM_H); ctx.lineTo(rx + rw, ry);
+  ctx.moveTo(rx, ry); ctx.lineTo(rx, ry + rh + BOTTOM_H + (hasDoor ? 5 : 0));
+  ctx.lineTo(rx + rw, ry + rh + BOTTOM_H + (hasDoor ? 5 : 0)); ctx.lineTo(rx + rw, ry);
   ctx.stroke();
 }
 
