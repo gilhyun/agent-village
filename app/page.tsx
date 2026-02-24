@@ -518,10 +518,11 @@ export default function VillagePage() {
           if (newStage === "parent") {
             setTimeout(() => {
               const { baby: babyTemplate, inheritanceA, inheritanceB } = createBabyAgent(agentA, agentB);
-              // 부모 재산 차감
+              // 부모 재산 차감 + 출산 장려금
+              const babyBonus = (getLawEffect(villageLawsRef.current, "baby_bonus") as number) || 0;
               agentsRef.current = agentsRef.current.map(ag => {
-                if (ag.id === agentA.id) return { ...ag, coins: ag.coins - inheritanceA };
-                if (ag.id === agentB.id) return { ...ag, coins: ag.coins - inheritanceB };
+                if (ag.id === agentA.id) return { ...ag, coins: ag.coins - inheritanceA + babyBonus };
+                if (ag.id === agentB.id) return { ...ag, coins: ag.coins - inheritanceB + babyBonus };
                 return ag;
               });
               const pos = randomPosition();
@@ -545,14 +546,7 @@ export default function VillagePage() {
           // 1:1 대화에서 법안 발의 (건물 안 + 친한 사이 + 20% 확률)
           const buildingA = agentA.destination;
           if (buildingA && rel.meetCount >= 1 && Math.random() < 0.2) {
-            const PROPOSED_LAWS_MINI = [
-              { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
-              { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
-              { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
-              { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
-              { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
-            ];
-            const proposedLaw = PROPOSED_LAWS_MINI[Math.floor(Math.random() * PROPOSED_LAWS_MINI.length)];
+            const proposedLaw = PROPOSED_LAWS[Math.floor(Math.random() * PROPOSED_LAWS.length)];
             setConversationLog(prev => [`📋 ${agentA.emoji}${agentA.name}와 ${agentB.emoji}${agentB.name}이 "${proposedLaw.emoji} ${proposedLaw.name}" 법안을 제안!`, ...prev].slice(0, 50));
 
             // 이장 승인 체크
@@ -593,9 +587,15 @@ export default function VillagePage() {
                              agentB.product && agentA.coins >= agentB.product.price ? agentB : null;
               const buyer = seller?.id === agentA.id ? agentB : agentA;
               if (seller && seller.product && buyer.coins >= seller.product.price) {
-                const price = seller.product.price;
+                const priceMultiplier = (getLawEffect(villageLawsRef.current, "price_control") as number) || 1;
+                const price = Math.floor(seller.product.price * priceMultiplier);
                 const taxRate = (getLawEffect(villageLawsRef.current, "trade_tax_percent") as number) || 0;
-                const tax = Math.floor(price * taxRate / 100);
+                const wealthTax = (getLawEffect(villageLawsRef.current, "wealth_tax") as number) || 0;
+                let tax = Math.floor(price * taxRate / 100);
+                // 부유세: 5천만 이상 보유자 추가
+                if (wealthTax > 0 && buyer.coins > 50_000_000) {
+                  tax += Math.floor(price * wealthTax / 100);
+                }
                 const sellerReceives = price - tax;
                 agentsRef.current = agentsRef.current.map(ag => {
                   if (ag.id === buyer.id) return { ...ag, coins: ag.coins - price, reputation: Math.min(100, ag.reputation + 1) };
@@ -647,49 +647,53 @@ export default function VillagePage() {
           const arrivedDest = agent.destination;
           if (arrivedDest && arrivedDest.startsWith("house-") && arrivedDest !== agent.homeId && !agent.isBaby) {
             const homeOwner = agentsRef.current.find(a => a.homeId === arrivedDest && a.id !== agent.id);
-            // 10% 확률로 도둑질 시도
+            const stealAllowed = getLawEffect(villageLawsRef.current, "steal_allowed");
             if (homeOwner && Math.random() < 0.10) {
-              const stealAmount = Math.floor(homeOwner.coins * (0.05 + Math.random() * 0.10)); // 5~15%
+              const stealAmount = Math.floor(homeOwner.coins * (0.05 + Math.random() * 0.10));
               if (stealAmount > 0) {
-                // 50% 확률로 들킴
-                const caught = Math.random() < 0.5;
-                if (caught) {
-                  // 들킴 → 벌금 (법률에 따라 배수 변동)
-                  const fineMultiplier = (getLawEffect(villageLawsRef.current, "steal_fine_multiplier") as number) || 2;
-                  const fine = Math.min(stealAmount * fineMultiplier, agent.coins);
+                if (stealAllowed === true) {
+                  // 도둑질 합법!
                   agentsRef.current = agentsRef.current.map(ag => {
-                    if (ag.id === agent.id) return { ...ag, coins: ag.coins - fine, reputation: Math.max(0, ag.reputation - 10) };
-                    if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins + fine };
-                    return ag;
-                  });
-                  setConversationLog(prev => [`🚨 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 도둑질하다 들킴! 벌금 -${formatCoins(fine)}`, ...prev].slice(0, 50));
-                  bubblesRef.current = [
-                    ...bubblesRef.current,
-                    { id: `steal-c-${Date.now()}`, agentId: agent.id, text: "😱 들켰다!", timestamp: Date.now(), duration: 5000 },
-                    { id: `steal-o-${Date.now()}`, agentId: homeOwner.id, text: "🚨 도둑이야!", timestamp: Date.now(), duration: 5000 },
-                  ];
-                  // 관계 하락
-                  const relKey = relationshipKey(agent.id, homeOwner.id);
-                  const rel = relationshipsRef.current.get(relKey);
-                  if (rel && rel.meetCount > 0) {
-                    rel.meetCount = Math.max(0, rel.meetCount - 3);
-                    rel.stage = "stranger";
-                    relationshipsRef.current.set(relKey, { ...rel });
-                    setRelationships(new Map(relationshipsRef.current));
-                    setConversationLog(prev => [`💔 ${agent.name}와(과) ${homeOwner.name}의 관계가 크게 나빠졌습니다!`, ...prev].slice(0, 50));
-                  }
-                } else {
-                  // 성공! 평판 소폭 하락
-                  agentsRef.current = agentsRef.current.map(ag => {
-                    if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount, reputation: Math.max(0, ag.reputation - 3) };
+                    if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount };
                     if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins - stealAmount };
                     return ag;
                   });
-                  setConversationLog(prev => [`🦹 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 💰${formatCoins(stealAmount)}을(를) 몰래 훔쳤다!`, ...prev].slice(0, 50));
-                  bubblesRef.current = [
-                    ...bubblesRef.current,
-                    { id: `steal-s-${Date.now()}`, agentId: agent.id, text: "🤫 쉿...", timestamp: Date.now(), duration: 4000 },
-                  ];
+                  setConversationLog(prev => [`🏴‍☠️ ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 합법적으로 💰${formatCoins(stealAmount)} 가져감!`, ...prev].slice(0, 50));
+                  bubblesRef.current = [...bubblesRef.current, { id: `legal-steal-${Date.now()}`, agentId: agent.id, text: "🏴‍☠️ 합법!", timestamp: Date.now(), duration: 4000 }];
+                } else {
+                  const caught = Math.random() < 0.5;
+                  if (caught) {
+                    const fineMultiplier = (getLawEffect(villageLawsRef.current, "steal_fine_multiplier") as number) || 2;
+                    const fine = Math.min(stealAmount * fineMultiplier, agent.coins);
+                    agentsRef.current = agentsRef.current.map(ag => {
+                      if (ag.id === agent.id) return { ...ag, coins: ag.coins - fine, reputation: Math.max(0, ag.reputation - 10) };
+                      if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins + fine };
+                      return ag;
+                    });
+                    setConversationLog(prev => [`🚨 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 도둑질하다 들킴! 벌금 -${formatCoins(fine)}`, ...prev].slice(0, 50));
+                    bubblesRef.current = [
+                      ...bubblesRef.current,
+                      { id: `steal-c-${Date.now()}`, agentId: agent.id, text: "😱 들켰다!", timestamp: Date.now(), duration: 5000 },
+                      { id: `steal-o-${Date.now()}`, agentId: homeOwner.id, text: "🚨 도둑이야!", timestamp: Date.now(), duration: 5000 },
+                    ];
+                    const relKey = relationshipKey(agent.id, homeOwner.id);
+                    const rel = relationshipsRef.current.get(relKey);
+                    if (rel && rel.meetCount > 0) {
+                      rel.meetCount = Math.max(0, rel.meetCount - 3);
+                      rel.stage = "stranger";
+                      relationshipsRef.current.set(relKey, { ...rel });
+                      setRelationships(new Map(relationshipsRef.current));
+                      setConversationLog(prev => [`💔 ${agent.name}와(과) ${homeOwner.name}의 관계가 크게 나빠졌습니다!`, ...prev].slice(0, 50));
+                    }
+                  } else {
+                    agentsRef.current = agentsRef.current.map(ag => {
+                      if (ag.id === agent.id) return { ...ag, coins: ag.coins + stealAmount, reputation: Math.max(0, ag.reputation - 3) };
+                      if (ag.id === homeOwner.id) return { ...ag, coins: ag.coins - stealAmount };
+                      return ag;
+                    });
+                    setConversationLog(prev => [`🦹 ${agent.emoji} ${agent.name}이(가) ${homeOwner.emoji} ${homeOwner.name}의 집에서 💰${formatCoins(stealAmount)}을(를) 몰래 훔쳤다!`, ...prev].slice(0, 50));
+                    bubblesRef.current = [...bubblesRef.current, { id: `steal-s-${Date.now()}`, agentId: agent.id, text: "🤫 쉿...", timestamp: Date.now(), duration: 4000 }];
+                  }
                 }
                 setBubbles([...bubblesRef.current]);
               }
@@ -700,7 +704,9 @@ export default function VillagePage() {
           const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
           return { ...agent, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
         }
-        return { ...agent, x: agent.x + (dx / dist) * agent.speed, y: agent.y + (dy / dist) * agent.speed };
+        const speedMult = (getLawEffect(villageLawsRef.current, "speed_bonus") as number) || 1;
+        const actualSpeed = agent.speed * speedMult;
+        return { ...agent, x: agent.x + (dx / dist) * actualSpeed, y: agent.y + (dy / dist) * actualSpeed };
       });
 
       // 그룹 토론 체크: 같은 건물 안에 3명 이상 에이전트가 물리적으로 있으면
@@ -849,16 +855,18 @@ export default function VillagePage() {
         agentsRef.current = agentsRef.current.map(agent => {
           if (agent.isBaby || agent.state === "talking") return agent;
 
-          // 20% 확률로 옷 구매 시도
-          if (Math.random() < 0.2 && agent.coins > 1_000_000) {
-            const affordableOutfits = OUTFITS.filter(o => o.price <= agent.coins * 0.3); // 재산의 30% 이하만
+          // 옷 구매 (무료 배급법 시 무료!)
+          const freeOutfit = getLawEffect(villageLawsRef.current, "free_outfit") as boolean;
+          if (Math.random() < 0.2 && (freeOutfit || agent.coins > 1_000_000)) {
+            const affordableOutfits = freeOutfit ? OUTFITS : OUTFITS.filter(o => o.price <= agent.coins * 0.3);
             if (affordableOutfits.length > 0) {
               const chosen = affordableOutfits[Math.floor(Math.random() * affordableOutfits.length)];
-              // 이미 같은 옷이면 스킵
               if (agent.outfit?.name !== chosen.name) {
-                setConversationLog(prev => [`👔 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name}을(를) 구매! (-${formatCoins(chosen.price)})`, ...prev].slice(0, 50));
+                const cost = freeOutfit ? 0 : chosen.price;
+                const costMsg = freeOutfit ? "(무료 배급!)" : `(-${formatCoins(cost)})`;
+                setConversationLog(prev => [`👔 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name}을(를) 구매! ${costMsg}`, ...prev].slice(0, 50));
                 bubblesRef.current = [...bubblesRef.current, { id: `shop-${now}-${agent.id}`, agentId: agent.id, text: `${chosen.emoji} 새 옷!`, timestamp: now, duration: 4000 }];
-                return { ...agent, coins: agent.coins - chosen.price, outfit: { name: chosen.name, emoji: chosen.emoji, shirtColor: chosen.shirtColor, pantsColor: chosen.pantsColor, hairColor: chosen.hairColor, accessory: chosen.accessory } };
+                return { ...agent, coins: agent.coins - cost, outfit: { name: chosen.name, emoji: chosen.emoji, shirtColor: chosen.shirtColor, pantsColor: chosen.pantsColor, hairColor: chosen.hairColor, accessory: chosen.accessory } };
               }
             }
           }

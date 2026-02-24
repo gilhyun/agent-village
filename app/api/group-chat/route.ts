@@ -131,15 +131,26 @@ ${speaker.product ? `판매 상품: ${speaker.product.emoji} ${speaker.product.n
     // 토론 결과 → 투표할 법안 선택 (30% 확률)
     let proposedLaw = null;
     if (Math.random() < 0.5) {
-      // 토론 주제에 관련된 법안 추천
+      // 전체 법안 목록에서 랜덤 선택
       const PROPOSED_LAWS = [
         { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
-        { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
-        { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
-        { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180000 } },
-        { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
-        { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
         { name: "도둑 관용법", emoji: "🕊️", description: "도둑질 벌금 1배로 낮춤", effect: { type: "steal_fine_multiplier", value: 1 } },
+        { name: "도둑질 합법화", emoji: "🏴‍☠️", description: "도둑질 자유! 벌금 없음!", effect: { type: "steal_allowed", allowed: true } },
+        { name: "도둑질 완전 금지", emoji: "🔒", description: "적발 시 벌금 5배!", effect: { type: "steal_fine_multiplier", value: 5 } },
+        { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
+        { name: "고율 세금법", emoji: "💰", description: "거래 시 30% 세금!", effect: { type: "trade_tax_percent", value: 30 } },
+        { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
+        { name: "물가 통제법", emoji: "📊", description: "모든 상품 가격 50% 할인", effect: { type: "price_control", multiplier: 0.5 } },
+        { name: "물가 자유화", emoji: "📈", description: "상품 가격 2배 인상!", effect: { type: "price_control", multiplier: 2.0 } },
+        { name: "부유세법", emoji: "🏦", description: "5천만 이상 보유자 추가 세금 5%", effect: { type: "wealth_tax", percent: 5 } },
+        { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
+        { name: "출산 장려금법", emoji: "👶", description: "출산 시 부모에게 1천만 보너스!", effect: { type: "baby_bonus", amount: 10_000_000 } },
+        { name: "무료 옷 배급법", emoji: "👕", description: "모든 주민에게 무료 옷!", effect: { type: "free_outfit", enabled: true } },
+        { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제!", effect: { type: "festival", duration: 180000 } },
+        { name: "속도 향상법", emoji: "⚡", description: "이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
+        { name: "느긋한 마을법", emoji: "🐌", description: "이동속도 -50%", effect: { type: "speed_bonus", value: 0.5 } },
+        { name: "개방 정책", emoji: "🌍", description: "인구 증가 촉진!", effect: { type: "open_borders", enabled: true } },
+        { name: "폐쇄 정책", emoji: "🏰", description: "인구 증가 제한!", effect: { type: "open_borders", enabled: false } },
       ];
       proposedLaw = PROPOSED_LAWS[Math.floor(Math.random() * PROPOSED_LAWS.length)];
 

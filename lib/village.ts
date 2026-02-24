@@ -50,18 +50,47 @@ export type LawEffect =
   | { type: "speed_bonus"; value: number }
   | { type: "festival"; duration: number }
   | { type: "curfew"; active: boolean }
-  | { type: "slogan"; text: string };
+  | { type: "slogan"; text: string }
+  // 새로운 권한들
+  | { type: "price_control"; multiplier: number }     // 물가 통제
+  | { type: "baby_bonus"; amount: number }             // 출산 장려금
+  | { type: "steal_allowed"; allowed: boolean }        // 도둑질 합법화/금지
+  | { type: "mayor_term_limit"; terms: number }        // 이장 임기 제한
+  | { type: "min_wage"; amount: number }               // 최저 거래가
+  | { type: "wealth_tax"; percent: number }            // 부유세
+  | { type: "free_outfit"; enabled: boolean }          // 무료 옷 배급
+  | { type: "exile"; agentName: string }               // 추방
+  | { type: "rename_village"; name: string }           // 마을 이름 변경
+  | { type: "open_borders"; enabled: boolean };        // 개방 정책 (인구 증가)
 
-// 투표 가능한 법안들
+// 투표 가능한 법안들 — 에이전트 최대 권한!
 export const PROPOSED_LAWS: { name: string; emoji: string; description: string; effect: LawEffect }[] = [
+  // 치안
   { name: "도둑 엄벌법", emoji: "🚔", description: "도둑질 벌금 3배!", effect: { type: "steal_fine_multiplier", value: 3 } },
-  { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
-  { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
-  { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180_000 } },
-  { name: "야간 통행금지", emoji: "🌙", description: "밤에는 집에만 있기", effect: { type: "curfew", active: true } },
-  { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
-  { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
   { name: "도둑 관용법", emoji: "🕊️", description: "도둑질 벌금 1배로 낮춤", effect: { type: "steal_fine_multiplier", value: 1 } },
+  { name: "도둑질 합법화", emoji: "🏴‍☠️", description: "도둑질 자유! 벌금 없음!", effect: { type: "steal_allowed", allowed: true } },
+  { name: "도둑질 완전 금지", emoji: "🔒", description: "도둑질 적발 시 벌금 5배 + 추방 위험", effect: { type: "steal_fine_multiplier", value: 5 } },
+  // 경제
+  { name: "시장 세금법", emoji: "💸", description: "거래 시 10% 세금", effect: { type: "trade_tax_percent", value: 10 } },
+  { name: "고율 세금법", emoji: "💰", description: "거래 시 30% 세금!", effect: { type: "trade_tax_percent", value: 30 } },
+  { name: "세금 폐지법", emoji: "🚫", description: "거래 세금 0%!", effect: { type: "trade_tax_percent", value: 0 } },
+  { name: "물가 통제법", emoji: "📊", description: "모든 상품 가격 50% 할인", effect: { type: "price_control", multiplier: 0.5 } },
+  { name: "물가 자유화", emoji: "📈", description: "상품 가격 2배로 인상!", effect: { type: "price_control", multiplier: 2.0 } },
+  { name: "부유세법", emoji: "🏦", description: "5천만 이상 보유자에게 매 거래 시 5% 추가 세금", effect: { type: "wealth_tax", percent: 5 } },
+  { name: "최저가격법", emoji: "⚖️", description: "모든 거래 최소 50만원 이상", effect: { type: "min_wage", amount: 500_000 } },
+  // 복지
+  { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
+  { name: "출산 장려금법", emoji: "👶", description: "아기 태어나면 부모에게 1천만 보너스!", effect: { type: "baby_bonus", amount: 10_000_000 } },
+  { name: "무료 옷 배급법", emoji: "👕", description: "모든 주민에게 무료 옷 배급!", effect: { type: "free_outfit", enabled: true } },
+  // 이벤트
+  { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180_000 } },
+  { name: "속도 향상법", emoji: "⚡", description: "모든 주민 이동속도 +50%", effect: { type: "speed_bonus", value: 1.5 } },
+  { name: "느긋한 마을법", emoji: "🐌", description: "모든 주민 이동속도 -50%", effect: { type: "speed_bonus", value: 0.5 } },
+  // 정치
+  { name: "야간 통행금지", emoji: "🌙", description: "밤에는 집에만 있기", effect: { type: "curfew", active: true } },
+  { name: "통행금지 해제", emoji: "☀️", description: "자유로운 이동!", effect: { type: "curfew", active: false } },
+  { name: "개방 정책", emoji: "🌍", description: "외부인 환영! 인구 증가 촉진", effect: { type: "open_borders", enabled: true } },
+  { name: "폐쇄 정책", emoji: "🏰", description: "마을 문 닫기! 인구 증가 제한", effect: { type: "open_borders", enabled: false } },
 ];
 
 // 에이전트 상품
