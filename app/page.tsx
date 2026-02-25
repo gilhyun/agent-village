@@ -83,9 +83,10 @@ function getTimeOfDay(virtualElapsed: number): { phase: TimeOfDay; progress: num
 // (getOverlayColor 제거 — 상단 그라데이션으로 대체)
 
 function formatCoins(coins: number): string {
-  if (coins >= 100_000_000) return `${(coins / 100_000_000).toFixed(1)}억`;
-  if (coins >= 10_000) return `${(coins / 10_000).toFixed(0)}만`;
-  return `${coins}`;
+  if (coins >= 1) return `₿${coins.toFixed(2)}`;
+  if (coins >= 0.01) return `₿${coins.toFixed(4)}`;
+  if (coins >= 0.0001) return `₿${coins.toFixed(6)}`;
+  return `${(coins * 100_000_000).toFixed(0)} sats`;
 }
 
 function shadeColor(hex: string, amt: number): string {
@@ -269,13 +270,13 @@ export default function VillagePage() {
         "자유로운 예술가. 세상을 캔버스로 본다.",
       ],
       products: [
-        { name: "음악 앨범", emoji: "🎵", price: 400_000, description: "직접 작곡한 음악 앨범" },
-        { name: "유기농 채소", emoji: "🥬", price: 150_000, description: "직접 키운 유기농 채소" },
-        { name: "수제 쿠키", emoji: "🍪", price: 300_000, description: "정성 가득 수제 쿠키" },
-        { name: "약초", emoji: "🌿", price: 350_000, description: "효능 좋은 약초 세트" },
+        { name: "음악 앨범", emoji: "🎵", price: 0.004, description: "직접 작곡한 음악 앨범" },
+        { name: "유기농 채소", emoji: "🥬", price: 0.0015, description: "직접 키운 유기농 채소" },
+        { name: "수제 쿠키", emoji: "🍪", price: 0.003, description: "정성 가득 수제 쿠키" },
+        { name: "약초", emoji: "🌿", price: 0.0035, description: "효능 좋은 약초 세트" },
       ],
       colors: ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#a78bfa"],
-      speedRange: [1.6, 2.4], coinsRange: [10_000_000, 50_000_000], repRange: [40, 60],
+      speedRange: [1.6, 2.4], coinsRange: [0.05, 0.15], repRange: [40, 60],
       arrivalMsg: "마을에 도착했습니다!", bubbleMsg: "🌍 안녕하세요!",
       stealChanceMult: 1,
     },
@@ -289,11 +290,11 @@ export default function VillagePage() {
         "강력반 형사. 범죄자를 추적하는 데 탁월한 능력을 가졌다.",
       ],
       products: [
-        { name: "안전 가이드", emoji: "📘", price: 200_000, description: "마을 안전 수칙 가이드북" },
-        { name: "호신용품", emoji: "🛡️", price: 500_000, description: "경찰 특수 호신용품" },
+        { name: "안전 가이드", emoji: "📘", price: 0.002, description: "마을 안전 수칙 가이드북" },
+        { name: "호신용품", emoji: "🛡️", price: 0.005, description: "경찰 특수 호신용품" },
       ],
       colors: ["#0ea5e9", "#0284c7", "#0369a1", "#38bdf8"],
-      speedRange: [2.4, 3.2], coinsRange: [20_000_000, 60_000_000], repRange: [60, 80],
+      speedRange: [2.4, 3.2], coinsRange: [0.08, 0.2], repRange: [60, 80],
       arrivalMsg: "치안 유지를 위해 부임했습니다!", bubbleMsg: "👮 질서를 지키겠습니다!",
       stealChanceMult: 0, // 경찰은 도둑질 안 함
     },
@@ -307,11 +308,11 @@ export default function VillagePage() {
         "신병 훈련병. 열정 가득하고 선임들을 존경한다.",
       ],
       products: [
-        { name: "전투 식량", emoji: "🥫", price: 250_000, description: "고열량 전투 식량" },
-        { name: "훈련 교본", emoji: "📗", price: 300_000, description: "군사 훈련 교본" },
+        { name: "전투 식량", emoji: "🥫", price: 0.0025, description: "고열량 전투 식량" },
+        { name: "훈련 교본", emoji: "📗", price: 0.003, description: "군사 훈련 교본" },
       ],
       colors: ["#059669", "#047857", "#065f46", "#34d399"],
-      speedRange: [2.8, 3.6], coinsRange: [15_000_000, 40_000_000], repRange: [55, 75],
+      speedRange: [2.8, 3.6], coinsRange: [0.06, 0.15], repRange: [55, 75],
       arrivalMsg: "마을 방어를 위해 배치되었습니다!", bubbleMsg: "🫡 충성!",
       stealChanceMult: 0, // 군인도 도둑질 안 함
     },
@@ -326,12 +327,12 @@ export default function VillagePage() {
         "동네 양아치. 시비 거는 걸 좋아하고 남의 물건에 손이 간다.",
       ],
       products: [
-        { name: "가짜 명품", emoji: "👜", price: 800_000, description: "진짜처럼 보이는 가짜 명품" },
-        { name: "수상한 약", emoji: "💊", price: 1_000_000, description: "출처 불명의 수상한 약" },
-        { name: "도박 칩", emoji: "🎰", price: 500_000, description: "지하 도박장 칩" },
+        { name: "가짜 명품", emoji: "👜", price: 0.008, description: "진짜처럼 보이는 가짜 명품" },
+        { name: "수상한 약", emoji: "💊", price: 0.01, description: "출처 불명의 수상한 약" },
+        { name: "도박 칩", emoji: "🎰", price: 0.005, description: "지하 도박장 칩" },
       ],
       colors: ["#ef4444", "#dc2626", "#b91c1c", "#f87171", "#991b1b"],
-      speedRange: [2.0, 3.0], coinsRange: [5_000_000, 30_000_000], repRange: [10, 30],
+      speedRange: [2.0, 3.0], coinsRange: [0.02, 0.1], repRange: [10, 30],
       arrivalMsg: "마을에 나타났다... 조심해!", bubbleMsg: "😎 여기가 내 구역이야",
       stealChanceMult: 3, // 도둑질 확률 3배!
     },
@@ -380,7 +381,7 @@ export default function VillagePage() {
       talkingTo: null,
       destination: null,
       homeId: null,
-      coins: coinMin + Math.floor(Math.random() * (coinMax - coinMin)),
+      coins: parseFloat((coinMin + Math.random() * (coinMax - coinMin)).toFixed(6)),
       product,
       reputation: repMin + Math.floor(Math.random() * (repMax - repMin)),
       agentClass: agentClass,
@@ -810,7 +811,7 @@ export default function VillagePage() {
                 const wealthTax = (getLawEffect(villageLawsRef.current, "wealth_tax") as number) || 0;
                 let tax = Math.floor(price * taxRate / 100);
                 // 부유세: 5천만 이상 보유자 추가
-                if (wealthTax > 0 && buyer.coins > 50_000_000) {
+                if (wealthTax > 0 && buyer.coins > 0.5) {
                   tax += Math.floor(price * wealthTax / 100);
                 }
                 const sellerReceives = price - tax;
@@ -1131,6 +1132,34 @@ export default function VillagePage() {
         setAgents([...agentsRef.current]);
       }
 
+      // ⛏️ 크립토 광산 채굴 (매 600틱 = ~10초 = 게임 내 1시간)
+      if (tickRef.current % 600 === 0) {
+        const MINE_HOURLY_WAGE = 0.0001; // ₿0.0001 per hour (최저시급)
+        const mine = VILLAGE_BUILDINGS.find(b => b.id === "mine");
+        if (mine) {
+          agentsRef.current = agentsRef.current.map(agent => {
+            if (agent.isDead || agent.isBaby) return agent;
+            // 광산 내부에 있는지 체크
+            const inMine = agent.x >= mine.x && agent.x <= mine.x + mine.width &&
+                           agent.y >= mine.y && agent.y <= mine.y + mine.height;
+            if (inMine) {
+              const newCoins = parseFloat((agent.coins! + MINE_HOURLY_WAGE).toFixed(8));
+              bubblesRef.current = [...bubblesRef.current, {
+                id: `mine-${Date.now()}-${agent.id}`,
+                agentId: agent.id,
+                text: `⛏️ +${MINE_HOURLY_WAGE} BTC`,
+                timestamp: Date.now(),
+                duration: 3000,
+              }];
+              return { ...agent, coins: newCoins };
+            }
+            return agent;
+          });
+          setBubbles([...bubblesRef.current]);
+          setAgents([...agentsRef.current]);
+        }
+      }
+
       // 🪙 크립토 리서치 (5분마다)
       if (tickRef.current % 3000 === 500 && !isResearching && Date.now() - lastResearchRef.current > 4 * 60 * 1000) {
         setIsResearching(true);
@@ -1171,7 +1200,7 @@ export default function VillagePage() {
       // 🏛️ 이장 선출 + 월급 (매 600틱 = ~10초)
       if (tickRef.current % 600 === 0 && tickRef.current > 0) {
         // 이장 월급 지급 (매 10초마다 100만원)
-        const MAYOR_SALARY = 1_000_000;
+        const MAYOR_SALARY = 0.001;
         const currentMayorForPay = agentsRef.current.find(a => a.isMayor);
         if (currentMayorForPay) {
           agentsRef.current = agentsRef.current.map(ag =>
@@ -1190,7 +1219,7 @@ export default function VillagePage() {
             const relCount = Array.from(relationshipsRef.current.values()).filter(
               r => (r.agentA === a.id || r.agentB === a.id) && r.meetCount >= 3
             ).length;
-            return { agent: a, score: a.reputation * 2 + relCount * 10 + (a.coins > 50_000_000 ? 20 : 0) };
+            return { agent: a, score: a.reputation * 2 + relCount * 10 + (a.coins > 0.5 ? 20 : 0) };
           });
           scores.sort((a, b) => b.score - a.score);
           const newMayor = scores[0].agent;
@@ -1234,7 +1263,7 @@ export default function VillagePage() {
 
           // 옷 구매 (무료 배급법 시 무료!)
           const freeOutfit = getLawEffect(villageLawsRef.current, "free_outfit") as boolean;
-          if (Math.random() < 0.2 && (freeOutfit || agent.coins > 1_000_000)) {
+          if (Math.random() < 0.2 && (freeOutfit || agent.coins > 0.01)) {
             const affordableOutfits = freeOutfit ? OUTFITS : OUTFITS.filter(o => o.price <= agent.coins * 0.3);
             if (affordableOutfits.length > 0) {
               const chosen = affordableOutfits[Math.floor(Math.random() * affordableOutfits.length)];
@@ -1260,7 +1289,7 @@ export default function VillagePage() {
           }
 
           // 🧱 15% 확률로 블록아트 만들기! (AI 생성)
-          if (Math.random() < 0.15 && agent.coins > 500_000 && !agent.isBaby) {
+          if (Math.random() < 0.15 && agent.coins > 0.005 && !agent.isBaby) {
             const agentId = agent.id;
             const agentCopy = { ...agent };
             // 비동기 AI 블록아트 생성
@@ -1277,7 +1306,7 @@ export default function VillagePage() {
               const grid: string[][] = data.grid;
               let blockCount = 0;
               grid.forEach((row: string[]) => row.forEach((cell: string) => { if (cell !== ".") blockCount++; }));
-              const totalCost = blockCount * 10_000;
+              const totalCost = blockCount * 0.0001;
               // 비용 체크 (비동기이므로 다시 확인)
               const currentAgent = agentsRef.current.find(a => a.id === agentId);
               if (!currentAgent || currentAgent.coins < totalCost) return;

@@ -86,10 +86,10 @@ export const PROPOSED_LAWS: { name: string; emoji: string; description: string; 
   { name: "물가 통제법", emoji: "📊", description: "모든 상품 가격 50% 할인", effect: { type: "price_control", multiplier: 0.5 } },
   { name: "물가 자유화", emoji: "📈", description: "상품 가격 2배로 인상!", effect: { type: "price_control", multiplier: 2.0 } },
   { name: "부유세법", emoji: "🏦", description: "5천만 이상 보유자에게 매 거래 시 5% 추가 세금", effect: { type: "wealth_tax", percent: 5 } },
-  { name: "최저가격법", emoji: "⚖️", description: "모든 거래 최소 50만원 이상", effect: { type: "min_wage", amount: 500_000 } },
+  { name: "최저가격법", emoji: "⚖️", description: "모든 거래 최소 ₿0.005 이상", effect: { type: "min_wage", amount: 0.005 } },
   // 복지
   { name: "친절 보너스법", emoji: "😊", description: "대화할 때마다 평판 +2", effect: { type: "reputation_bonus", value: 2 } },
-  { name: "출산 장려금법", emoji: "👶", description: "아기 태어나면 부모에게 1천만 보너스!", effect: { type: "baby_bonus", amount: 10_000_000 } },
+  { name: "출산 장려금법", emoji: "👶", description: "아기 태어나면 부모에게 ₿0.1 보너스!", effect: { type: "baby_bonus", amount: 0.1 } },
   { name: "무료 옷 배급법", emoji: "👕", description: "모든 주민에게 무료 옷 배급!", effect: { type: "free_outfit", enabled: true } },
   // 이벤트
   { name: "마을 축제 개최", emoji: "🎉", description: "3분간 축제! 모두 광장으로!", effect: { type: "festival", duration: 180_000 } },
@@ -122,37 +122,37 @@ export interface AgentOutfit {
 
 // 옷 상점 목록
 export const OUTFITS: (AgentOutfit & { price: number })[] = [
-  { name: "캐주얼룩", emoji: "👕", price: 500_000, shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
-  { name: "정장", emoji: "🤵", price: 2_000_000, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "tie" },
-  { name: "운동복", emoji: "🏃", price: 300_000, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
-  { name: "파티복", emoji: "🎉", price: 3_000_000, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
-  { name: "왕관세트", emoji: "👑", price: 10_000_000, shirtColor: "#f1c40f", pantsColor: "#d4ac0d", accessory: "crown" },
-  { name: "과학자복", emoji: "🥼", price: 1_500_000, shirtColor: "#ecf0f1", pantsColor: "#bdc3c7", accessory: "glasses" },
-  { name: "요리사복", emoji: "👨‍🍳", price: 1_000_000, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
-  { name: "탐험가복", emoji: "🧭", price: 1_500_000, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
+  { name: "캐주얼룩", emoji: "👕", price: 0.005, shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
+  { name: "정장", emoji: "🤵", price: 0.02, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "tie" },
+  { name: "운동복", emoji: "🏃", price: 0.003, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
+  { name: "파티복", emoji: "🎉", price: 0.03, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
+  { name: "왕관세트", emoji: "👑", price: 0.1, shirtColor: "#f1c40f", pantsColor: "#d4ac0d", accessory: "crown" },
+  { name: "과학자복", emoji: "🥼", price: 0.015, shirtColor: "#ecf0f1", pantsColor: "#bdc3c7", accessory: "glasses" },
+  { name: "요리사복", emoji: "👨‍🍳", price: 0.01, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
+  { name: "탐험가복", emoji: "🧭", price: 0.015, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
 ];
 
 // 집 업그레이드 비용
 export const HOME_UPGRADES = [
-  { level: 1, name: "중형 주택", price: 5_000_000, sizeBonus: 30, extraFurniture: 2 },
-  { level: 2, name: "대형 주택", price: 15_000_000, sizeBonus: 60, extraFurniture: 4 },
-  { level: 3, name: "맨션", price: 50_000_000, sizeBonus: 100, extraFurniture: 6 },
+  { level: 1, name: "중형 주택", price: 0.05, sizeBonus: 30, extraFurniture: 2 },
+  { level: 2, name: "대형 주택", price: 0.15, sizeBonus: 60, extraFurniture: 4 },
+  { level: 3, name: "맨션", price: 0.5, sizeBonus: 100, extraFurniture: 6 },
 ];
 
 // 🧱 블록 시스템
 export const BLOCK_COLORS = [
-  { name: "빨강", color: "#e74c3c", price: 10_000 },
-  { name: "주황", color: "#e67e22", price: 10_000 },
-  { name: "노랑", color: "#f1c40f", price: 10_000 },
-  { name: "초록", color: "#2ecc71", price: 10_000 },
-  { name: "파랑", color: "#3498db", price: 10_000 },
-  { name: "남색", color: "#2c3e50", price: 10_000 },
-  { name: "보라", color: "#9b59b6", price: 10_000 },
-  { name: "분홍", color: "#e91e63", price: 10_000 },
-  { name: "하양", color: "#ecf0f1", price: 5_000 },
-  { name: "검정", color: "#2d3436", price: 5_000 },
-  { name: "갈색", color: "#8b6914", price: 5_000 },
-  { name: "하늘", color: "#74b9ff", price: 10_000 },
+  { name: "빨강", color: "#e74c3c", price: 0.0001 },
+  { name: "주황", color: "#e67e22", price: 0.0001 },
+  { name: "노랑", color: "#f1c40f", price: 0.0001 },
+  { name: "초록", color: "#2ecc71", price: 0.0001 },
+  { name: "파랑", color: "#3498db", price: 0.0001 },
+  { name: "남색", color: "#2c3e50", price: 0.0001 },
+  { name: "보라", color: "#9b59b6", price: 0.0001 },
+  { name: "분홍", color: "#e91e63", price: 0.0001 },
+  { name: "하양", color: "#ecf0f1", price: 0.00005 },
+  { name: "검정", color: "#2d3436", price: 0.00005 },
+  { name: "갈색", color: "#8b6914", price: 0.00005 },
+  { name: "하늘", color: "#74b9ff", price: 0.0001 },
 ];
 
 export interface PlacedBlock {
@@ -307,8 +307,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-minsu",
-    coins: 100_000_000, reputation: 50,
-    product: { name: "온체인 리포트", emoji: "📊", price: 500_000, description: "고래 지갑 추적 + DEX 분석 리포트" },
+    coins: 0.1, reputation: 50,
+    product: { name: "온체인 리포트", emoji: "📊", price: 0.005, description: "고래 지갑 추적 + DEX 분석 리포트" },
   },
   {
     id: "agent-2",
@@ -320,8 +320,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-jieun",
-    coins: 100_000_000, reputation: 50,
-    product: { name: "밈코인 알파", emoji: "🎯", price: 800_000, description: "초기 밈코인 발굴 정보" },
+    coins: 0.1, reputation: 50,
+    product: { name: "밈코인 알파", emoji: "🎯", price: 0.008, description: "초기 밈코인 발굴 정보" },
   },
   {
     id: "agent-3",
@@ -333,8 +333,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-junho",
-    coins: 100_000_000, reputation: 50,
-    product: { name: "DeFi 전략서", emoji: "🐋", price: 300_000, description: "수익률 최적화 DeFi 전략" },
+    coins: 0.1, reputation: 50,
+    product: { name: "DeFi 전략서", emoji: "🐋", price: 0.003, description: "수익률 최적화 DeFi 전략" },
   },
   {
     id: "agent-4",
@@ -346,8 +346,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-hana",
-    coins: 100_000_000, reputation: 50,
-    product: { name: "차트 분석", emoji: "📈", price: 600_000, description: "기술적 분석 기반 매매 시그널" },
+    coins: 0.1, reputation: 50,
+    product: { name: "차트 분석", emoji: "📈", price: 0.006, description: "기술적 분석 기반 매매 시그널" },
   },
   {
     id: "agent-5",
@@ -359,8 +359,8 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-taehyun",
-    coins: 100_000_000, reputation: 50,
-    product: { name: "매크로 분석", emoji: "💎", price: 400_000, description: "거시경제 × 비트코인 상관관계 분석" },
+    coins: 0.1, reputation: 50,
+    product: { name: "매크로 분석", emoji: "💎", price: 0.004, description: "거시경제 × 비트코인 상관관계 분석" },
   },
 ];
 
@@ -620,6 +620,28 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "bookshelf", x: 225, y: 90, w: 45, h: 20 },
     ],
   },
+  // ⛏️ 크립토 광산
+  {
+    id: "mine", name: "크립토 광산", emoji: "⛏️", x: 100, y: 1050, width: 200, height: 160, roofColor: "#4a3728", wallColor: "#6b5340", floorColor: "#3d3228",
+    wings: [
+      { dx: -70, dy: 40, w: 80, h: 80 },  // 왼쪽 갱도 입구
+    ],
+    furniture: [
+      // 채굴 장비
+      { type: "desk", x: 20, y: 20, w: 60, h: 30 },   // 서버 랙 1
+      { type: "desk", x: 100, y: 20, w: 60, h: 30 },  // 서버 랙 2
+      { type: "desk", x: 20, y: 70, w: 60, h: 30 },   // 서버 랙 3
+      { type: "desk", x: 100, y: 70, w: 60, h: 30 },  // 서버 랙 4
+      // 의자
+      { type: "chair", x: 40, y: 55, w: 15, h: 15 },
+      { type: "chair", x: 120, y: 55, w: 15, h: 15 },
+      // 벤치
+      { type: "bench", x: 50, y: 120, w: 80, h: 15 },
+      // 갱도 선반
+      { type: "bookshelf", x: -55, y: 50, w: 45, h: 20 },
+      { type: "bookshelf", x: -55, y: 75, w: 45, h: 20 },
+    ],
+  },
 ];
 
 // Decorations
@@ -839,14 +861,14 @@ const ADULT_PERSONALITIES = [
 ];
 
 const GROWN_PRODUCTS: { name: string; emoji: string; price: number; description: string }[] = [
-  { name: "수제 비누", emoji: "🧼", price: 200_000, description: "향기로운 수제 비누" },
-  { name: "목걸이", emoji: "📿", price: 350_000, description: "손으로 만든 예쁜 목걸이" },
-  { name: "약초차", emoji: "🍵", price: 250_000, description: "마을 산에서 딴 약초차" },
-  { name: "수제 잼", emoji: "🫙", price: 180_000, description: "과일로 만든 수제 잼" },
-  { name: "나무 인형", emoji: "🪆", price: 450_000, description: "깎아 만든 나무 인형" },
-  { name: "꽃다발", emoji: "💐", price: 150_000, description: "마을 들판의 꽃다발" },
-  { name: "향초", emoji: "🕯️", price: 280_000, description: "아로마 향초" },
-  { name: "수제 쿠키", emoji: "🍪", price: 120_000, description: "갓 구운 수제 쿠키" },
+  { name: "수제 비누", emoji: "🧼", price: 0.002, description: "향기로운 수제 비누" },
+  { name: "목걸이", emoji: "📿", price: 0.0035, description: "손으로 만든 예쁜 목걸이" },
+  { name: "약초차", emoji: "🍵", price: 0.0025, description: "마을 산에서 딴 약초차" },
+  { name: "수제 잼", emoji: "🫙", price: 0.0018, description: "과일로 만든 수제 잼" },
+  { name: "나무 인형", emoji: "🪆", price: 0.0045, description: "깎아 만든 나무 인형" },
+  { name: "꽃다발", emoji: "💐", price: 0.0015, description: "마을 들판의 꽃다발" },
+  { name: "향초", emoji: "🕯️", price: 0.0028, description: "아로마 향초" },
+  { name: "수제 쿠키", emoji: "🍪", price: 0.0012, description: "갓 구운 수제 쿠키" },
 ];
 
 export function growUpBaby(agent: Agent): Agent {
