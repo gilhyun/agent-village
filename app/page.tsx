@@ -65,6 +65,12 @@ const DAWN_START = 0.0;  // 0% = 새벽/일출
 const DUSK_START = 0.65; // 65% = 해질녘
 const NIGHT_SPEED = 4;   // 밤 4배속
 
+// 🍽️ 식량 시스템
+const MEAL_COST = 0.0002;        // 식사 비용 ₿0.0002
+const HUNGER_PER_DAY = 15;       // 하루에 배고픔 -15
+const STARVATION_DAYS = 7;       // 7일 굶으면 사망
+const MEAL_RESTORE = 30;         // 식사 시 배고픔 +30
+
 type TimeOfDay = "dawn" | "day" | "dusk" | "night";
 
 function getTimeOfDay(virtualElapsed: number): { phase: TimeOfDay; progress: number; hourLabel: string } {
@@ -389,6 +395,8 @@ export default function VillagePage() {
       hp: classHp[agentClass] || 100,
       maxHp: classHp[agentClass] || 100,
       outfit: classOutfits[agentClass] || undefined,
+      hunger: 100,
+      lastMealTime: virtualElapsedRef.current,
     };
 
     agentsRef.current = [...agentsRef.current, newAgent];
@@ -1174,6 +1182,74 @@ export default function VillagePage() {
         setAgents([...agentsRef.current]);
       }
 
+      // 🍽️ 배고픔 시스템 (매 600틱 = 게임 내 1시간)
+      if (tickRef.current % 600 === 300) {
+        const hungerDrop = HUNGER_PER_DAY / 24; // 시간당 감소
+        agentsRef.current = agentsRef.current.map(agent => {
+          if (agent.isDead || agent.isBaby) return agent;
+          const hunger = agent.hunger ?? 100;
+          const newHunger = Math.max(0, hunger - hungerDrop);
+
+          // 아사 (배고픔 0이 된 후 7일 = 7 * 24 * 600틱 동안 못 먹으면)
+          if (newHunger <= 0) {
+            const lastMeal = agent.lastMealTime ?? 0;
+            const elapsed = virtualElapsedRef.current - lastMeal;
+            if (elapsed > STARVATION_DAYS * DAY_DURATION) {
+              setConversationLog(prev => [`💀🍽️ ${agent.emoji} ${agent.name}이(가) 굶어 죽었다...`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `starve-${Date.now()}-${agent.id}`, agentId: agent.id, text: "😵 배고파... 💀", timestamp: Date.now(), duration: 5000 }];
+              return { ...agent, hunger: 0, hp: 0, isDead: true, deathTime: Date.now(), state: "idle" as const };
+            }
+          }
+
+          // 배고프면 (hunger < 40) 식당으로 가려고 함
+          if (newHunger < 40 && agent.state === "walking" && agent.destination !== "restaurant" && agent.coins >= MEAL_COST) {
+            const restaurant = VILLAGE_BUILDINGS.find(b => b.id === "restaurant");
+            if (restaurant && Math.random() < 0.5) {
+              const rx = restaurant.x + restaurant.width / 2 + (Math.random() - 0.5) * 20;
+              const ry = restaurant.y + restaurant.height / 2 + (Math.random() - 0.5) * 20;
+              bubblesRef.current = [...bubblesRef.current, { id: `hungry-${Date.now()}-${agent.id}`, agentId: agent.id, text: newHunger < 15 ? "😫 배고파 죽겠어..." : "🍽️ 밥 먹으러 가자", timestamp: Date.now(), duration: 3000 }];
+              return { ...agent, hunger: newHunger, targetX: rx, targetY: ry, destination: "restaurant" };
+            }
+          }
+
+          return { ...agent, hunger: newHunger };
+        });
+        setBubbles([...bubblesRef.current]);
+        setAgents([...agentsRef.current]);
+      }
+
+      // 🍽️ 식당에서 식사 (도착 시)
+      if (tickRef.current % 60 === 0) {
+        const restaurant = VILLAGE_BUILDINGS.find(b => b.id === "restaurant");
+        if (restaurant) {
+          agentsRef.current = agentsRef.current.map(agent => {
+            if (agent.isDead || agent.isBaby) return agent;
+            if (agent.destination !== "restaurant") return agent;
+            const inRestaurant = agent.x >= restaurant.x && agent.x <= restaurant.x + restaurant.width &&
+                                 agent.y >= restaurant.y && agent.y <= restaurant.y + restaurant.height;
+            if (!inRestaurant) return agent;
+            if ((agent.hunger ?? 100) >= 80) return agent; // 이미 배부름
+            if (agent.coins < MEAL_COST) {
+              bubblesRef.current = [...bubblesRef.current, { id: `broke-${Date.now()}-${agent.id}`, agentId: agent.id, text: "😢 돈이 없어...", timestamp: Date.now(), duration: 3000 }];
+              return agent;
+            }
+
+            const newHunger = Math.min(100, (agent.hunger ?? 0) + MEAL_RESTORE);
+            const meals = ["🍜 라면", "🍛 카레", "🍚 백반", "🍖 고기", "🍣 초밥", "🥘 찌개", "🍕 피자", "🍔 버거"];
+            const meal = meals[Math.floor(Math.random() * meals.length)];
+            bubblesRef.current = [...bubblesRef.current, { id: `eat-${Date.now()}-${agent.id}`, agentId: agent.id, text: `${meal} 맛있다~`, timestamp: Date.now(), duration: 4000 }];
+            return {
+              ...agent,
+              hunger: newHunger,
+              coins: parseFloat((agent.coins - MEAL_COST).toFixed(8)),
+              lastMealTime: virtualElapsedRef.current,
+            };
+          });
+          setBubbles([...bubblesRef.current]);
+          setAgents([...agentsRef.current]);
+        }
+      }
+
       // ⛏️ 크립토 광산 채굴 (매 600틱 = ~10초 = 게임 내 1시간)
       if (tickRef.current % 600 === 0) {
         const MINE_HOURLY_WAGE = 0.0001; // ₿0.0001 per hour (최저시급)
@@ -1786,12 +1862,24 @@ export default function VillagePage() {
         const barX = agent.x - barW / 2;
         const barY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 8;
         const hpRatio = agent.hp / agent.maxHp;
-        // 배경
         ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(barX, barY, barW, barH);
-        // HP
         ctx.fillStyle = hpRatio > 0.6 ? "#2ecc71" : hpRatio > 0.3 ? "#f1c40f" : "#e74c3c";
         ctx.fillRect(barX, barY, barW * hpRatio, barH);
+      }
+
+      // 🍽️ 배고픔 바
+      if (!agent.isDead && !agent.isBaby) {
+        const hunger = agent.hunger ?? 100;
+        const barW = 24;
+        const barH = 2;
+        const barX = agent.x - barW / 2;
+        const barY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - (agent.agentClass ? 12 : 8);
+        const hungerRatio = hunger / 100;
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = hungerRatio > 0.5 ? "#f59e0b" : hungerRatio > 0.2 ? "#ef4444" : "#991b1b";
+        ctx.fillRect(barX, barY, barW * hungerRatio, barH);
       }
 
       // 🔫🔪 무기 표시

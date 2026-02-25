@@ -52,6 +52,9 @@ export interface Agent {
   maxHp?: number;
   isDead?: boolean;
   deathTime?: number;
+  // 🍽️ 식량 시스템
+  hunger?: number; // 0~100, 100=배부름, 0=굶주림
+  lastMealTime?: number; // 마지막 식사 시각 (virtualElapsed)
 }
 
 // 🏛️ 마을 법률
@@ -675,6 +678,31 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "bookshelf", x: 225, y: 30, w: 45, h: 20 },
       { type: "bookshelf", x: 225, y: 60, w: 45, h: 20 },
       { type: "bookshelf", x: 225, y: 90, w: 45, h: 20 },
+    ],
+  },
+  // 🍽️ 식당
+  {
+    id: "restaurant", name: "식당", emoji: "🍽️", x: 450, y: 880, width: 180, height: 130, roofColor: "#b45309", wallColor: "#d4a06a", floorColor: "#e8d0b0",
+    wings: [
+      { dx: 170, dy: 10, w: 60, h: 80 },  // 주방
+    ],
+    furniture: [
+      // 테이블
+      { type: "desk", x: 15, y: 15, w: 45, h: 25 },
+      { type: "desk", x: 75, y: 15, w: 45, h: 25 },
+      { type: "desk", x: 15, y: 60, w: 45, h: 25 },
+      { type: "desk", x: 75, y: 60, w: 45, h: 25 },
+      // 의자
+      { type: "chair", x: 25, y: 45, w: 12, h: 12 },
+      { type: "chair", x: 55, y: 45, w: 12, h: 12 },
+      { type: "chair", x: 85, y: 45, w: 12, h: 12 },
+      { type: "chair", x: 115, y: 45, w: 12, h: 12 },
+      // 카운터
+      { type: "bench", x: 15, y: 100, w: 120, h: 15 },
+      // 주방 선반
+      { type: "bookshelf", x: 180, y: 20, w: 40, h: 18 },
+      { type: "bookshelf", x: 180, y: 45, w: 40, h: 18 },
+      { type: "bookshelf", x: 180, y: 70, w: 40, h: 18 },
     ],
   },
   // ⛏️ 크립토 광산 (산속 동굴)
