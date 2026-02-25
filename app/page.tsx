@@ -62,11 +62,12 @@ const DAY_DURATION = 60_000; // 60초 = 1일 (밤 ~18초)
 const NIGHT_START = 0.7; // 70% 지점부터 밤 (14초 낮, 6초 밤)
 const DAWN_START = 0.0;  // 0% = 새벽/일출
 const DUSK_START = 0.65; // 65% = 해질녘
+const NIGHT_SPEED = 4;   // 밤 4배속
 
 type TimeOfDay = "dawn" | "day" | "dusk" | "night";
 
-function getTimeOfDay(startTime: number): { phase: TimeOfDay; progress: number; hourLabel: string } {
-  const elapsed = (Date.now() - startTime) % DAY_DURATION;
+function getTimeOfDay(virtualElapsed: number): { phase: TimeOfDay; progress: number; hourLabel: string } {
+  const elapsed = virtualElapsed % DAY_DURATION;
   const progress = elapsed / DAY_DURATION; // 0~1
   // 시간 매핑: 0=06:00, 0.7=21:00, 1.0=06:00
   const hour = Math.floor(((progress * 24) + 6) % 24);
@@ -155,6 +156,8 @@ export default function VillagePage() {
   const [showObjectPicker, setShowObjectPicker] = useState(false);
   const [showLawsPopup, setShowLawsPopup] = useState(false);
   const [villageStartTime] = useState(Date.now()); // 마을 탄생 시간
+  const virtualElapsedRef = useRef(0); // 가상 경과 시간 (밤 4배속 반영)
+  const lastRealTimeRef = useRef(Date.now());
   const [villageDays, setVillageDays] = useState(1); // 마을 일수
   const placedBlocksRef = useRef<PlacedBlock[]>([]); // 🧱 배치된 블록들
   const worldObjectsRef = useRef<WorldObject[]>([]);
@@ -852,12 +855,19 @@ export default function VillagePage() {
       const now = Date.now();
       tickRef.current += 1;
 
+      // 가상 시간 업데이트 (밤엔 4배속)
+      const realDelta = now - lastRealTimeRef.current;
+      lastRealTimeRef.current = now;
+      const currentPhase = getTimeOfDay(virtualElapsedRef.current).phase;
+      const speed = (currentPhase === "night" || currentPhase === "dusk") ? NIGHT_SPEED : 1;
+      virtualElapsedRef.current += realDelta * speed;
+
       agentsRef.current = agentsRef.current.map((agent) => {
         if (agent.state === "talking") return agent;
         if (agent.isDead) return agent; // 죽은 에이전트 이동 안 함
         // 자고 있는 에이전트 아침에 깨우기
         if (agent.state === "idle") {
-          const timeNow = getTimeOfDay(villageStartTime);
+          const timeNow = getTimeOfDay(virtualElapsedRef.current);
           if (timeNow.phase === "dawn" || timeNow.phase === "day") {
             const next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
             return { ...agent, state: "walking" as const, ...next };
@@ -930,7 +940,7 @@ export default function VillagePage() {
           }
 
           // Arrived at destination — pick new one
-          const currentTime = getTimeOfDay(villageStartTime);
+          const currentTime = getTimeOfDay(virtualElapsedRef.current);
           let next;
           if (currentTime.phase === "night" && agent.homeId) {
             // 밤에는 80% 확률로 집에 감 (20%는 밤새는 놈 ㅋ)
@@ -1267,8 +1277,7 @@ export default function VillagePage() {
       }
 
       // 마을 날짜 업데이트 (20초 = 1일)
-      const elapsedMs = now - villageStartTime;
-      const newDays = Math.floor(elapsedMs / DAY_DURATION) + 1;
+      const newDays = Math.floor(virtualElapsedRef.current / DAY_DURATION) + 1;
       if (newDays !== villageDays) setVillageDays(newDays);
 
       bubblesRef.current = bubblesRef.current.filter((b) => now - b.timestamp < b.duration);
@@ -1638,7 +1647,7 @@ export default function VillagePage() {
     }
 
     // 🌙 낮/밤 오버레이
-    const timeInfo = getTimeOfDay(villageStartTime);
+    const timeInfo = getTimeOfDay(virtualElapsedRef.current);
     const overlayColor = getOverlayColor(timeInfo.phase, timeInfo.progress);
     if (overlayColor !== "rgba(0,0,0,0)") {
       ctx.fillStyle = overlayColor;
@@ -1745,7 +1754,7 @@ export default function VillagePage() {
       <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/80 border-b border-zinc-800 shrink-0 flex-wrap">
         <h1 className="text-lg font-bold">🏘️ Agent Village</h1>
         {(() => {
-          const t = getTimeOfDay(villageStartTime);
+          const t = getTimeOfDay(virtualElapsedRef.current);
           const emoji = t.phase === "night" ? "🌙" : t.phase === "dawn" ? "🌅" : t.phase === "dusk" ? "🌇" : "☀️";
           return <span className="text-amber-400/80 text-xs font-mono">📅 {villageDays}일차 {emoji} {t.hourLabel}</span>;
         })()}
