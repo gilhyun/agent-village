@@ -53,7 +53,7 @@ import {
 import { TILEMAP, TILE_SIZE, TILE_SCALE, TILES_X, TILES_Y, T, DECORATIONS } from "@/lib/tilemap";
 
 // Viewport size (what you see on screen)
-const VIEWPORT_W = 800;
+const VIEWPORT_W = 800; // 기본값, 동적으로 변경됨
 const VIEWPORT_H = 600;
 const TS = TILE_SIZE * TILE_SCALE; // rendered tile size in px
 
@@ -132,6 +132,10 @@ function isInMarket(x: number, y: number): boolean {
 
 export default function VillagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [viewportSize, setViewportSize] = useState({ w: VIEWPORT_W, h: VIEWPORT_H });
+  const vpRef = useRef({ w: VIEWPORT_W, h: VIEWPORT_H });
+  vpRef.current = viewportSize;
   const [agents, setAgents] = useState<Agent[]>([]);
   const [relationships, setRelationships] = useState<Map<string, Relationship>>(new Map());
   const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
@@ -182,6 +186,21 @@ export default function VillagePage() {
     agentsRef.current = initialized;
   }, [agentCount]);
 
+  // 뷰포트 리사이즈
+  useEffect(() => {
+    const updateSize = () => {
+      if (canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        const w = Math.floor(rect.width);
+        const h = Math.floor(window.innerHeight - 60); // 상단바 제외
+        setViewportSize({ w: Math.max(400, w), h: Math.max(300, h) });
+      }
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
   // Camera drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     isDragging.current = true;
@@ -193,8 +212,8 @@ export default function VillagePage() {
     if (!isDragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    const newX = Math.max(0, Math.min(MAP_WIDTH - VIEWPORT_W, cameraStart.current.x - dx));
-    const newY = Math.max(0, Math.min(MAP_HEIGHT - VIEWPORT_H, cameraStart.current.y - dy));
+    const newX = Math.max(0, Math.min(MAP_WIDTH - vpRef.current.w, cameraStart.current.x - dx));
+    const newY = Math.max(0, Math.min(MAP_HEIGHT - vpRef.current.h, cameraStart.current.y - dy));
     setCameraX(newX);
     setCameraY(newY);
   }, []);
@@ -1189,7 +1208,13 @@ export default function VillagePage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, VIEWPORT_W, VIEWPORT_H);
+    // 동적 뷰포트
+    const VW = vpRef.current.w;
+    const VH = vpRef.current.h;
+    canvas.width = VW;
+    canvas.height = VH;
+
+    ctx.clearRect(0, 0, VW, VH);
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
 
@@ -1204,8 +1229,8 @@ export default function VillagePage() {
     // Only render visible tile range for performance
     const startTX = Math.max(0, Math.floor(cameraX / TS) - 1);
     const startTY = Math.max(0, Math.floor(cameraY / TS) - 1);
-    const endTX = Math.min(TILES_X, Math.ceil((cameraX + VIEWPORT_W) / TS) + 1);
-    const endTY = Math.min(TILES_Y, Math.ceil((cameraY + VIEWPORT_H) / TS) + 1);
+    const endTX = Math.min(TILES_X, Math.ceil((cameraX + VW) / TS) + 1);
+    const endTY = Math.min(TILES_Y, Math.ceil((cameraY + VH) / TS) + 1);
     const tick = tickRef.current;
 
     // Draw ground tiles
@@ -1255,8 +1280,8 @@ export default function VillagePage() {
       const dpx = d.tx * TS;
       const dpy = d.ty * TS;
       // Skip if outside viewport
-      if (dpx + TS * 2 < cameraX || dpx > cameraX + VIEWPORT_W) return;
-      if (dpy + TS * 2 < cameraY || dpy > cameraY + VIEWPORT_H) return;
+      if (dpx + TS * 2 < cameraX || dpx > cameraX + VW) return;
+      if (dpy + TS * 2 < cameraY || dpy > cameraY + VH) return;
       if (godEffect) return; // hide decorations during god effect
 
       if (d.type === "tree") drawBigTree(ctx, dpx, dpy, TILE_SCALE, d.variant);
@@ -1268,8 +1293,8 @@ export default function VillagePage() {
     // Buildings (interior view)
     VILLAGE_BUILDINGS.forEach((b) => {
       // Skip if outside viewport
-      if (b.x + b.width + 20 < cameraX || b.x - 20 > cameraX + VIEWPORT_W) return;
-      if (b.y + b.height + 20 < cameraY || b.y - 30 > cameraY + VIEWPORT_H) return;
+      if (b.x + b.width + 20 < cameraX || b.x - 20 > cameraX + VW) return;
+      if (b.y + b.height + 20 < cameraY || b.y - 30 > cameraY + VH) return;
 
       drawBuildingInterior(ctx, b, godEffect);
 
@@ -1468,7 +1493,7 @@ export default function VillagePage() {
     for (const block of placedBlocksRef.current) {
       const bx = block.x - cameraX;
       const by = block.y - cameraY;
-      if (bx > -BLOCK_SIZE && bx < VIEWPORT_W && by > -BLOCK_SIZE && by < VIEWPORT_H) {
+      if (bx > -BLOCK_SIZE && bx < VW && by > -BLOCK_SIZE && by < VH) {
         ctx.fillStyle = block.color;
         ctx.fillRect(bx, by, BLOCK_SIZE, BLOCK_SIZE);
       }
@@ -1479,21 +1504,21 @@ export default function VillagePage() {
     const overlayColor = getOverlayColor(timeInfo.phase, timeInfo.progress);
     if (overlayColor !== "rgba(0,0,0,0)") {
       ctx.fillStyle = overlayColor;
-      ctx.fillRect(0, 0, VIEWPORT_W, VIEWPORT_H);
+      ctx.fillRect(0, 0, VW, VH);
     }
 
     // 밤에 별 반짝이
     if (timeInfo.phase === "night") {
       ctx.fillStyle = "rgba(255,255,255,0.6)";
       for (let i = 0; i < 15; i++) {
-        const sx = (Math.sin(i * 73.7 + tick * 0.02) * 0.5 + 0.5) * VIEWPORT_W;
-        const sy = (Math.cos(i * 47.3 + tick * 0.015) * 0.5 + 0.5) * VIEWPORT_H * 0.3;
+        const sx = (Math.sin(i * 73.7 + tick * 0.02) * 0.5 + 0.5) * VW;
+        const sy = (Math.cos(i * 47.3 + tick * 0.015) * 0.5 + 0.5) * VH * 0.3;
         const size = 1 + Math.sin(tick * 0.05 + i) * 0.5;
         ctx.fillRect(sx, sy, size, size);
       }
       // 달
       ctx.font = "20px sans-serif";
-      ctx.fillText("🌙", VIEWPORT_W - 40, 30);
+      ctx.fillText("🌙", VW - 40, 30);
     }
 
     // 새벽 해
@@ -1507,13 +1532,13 @@ export default function VillagePage() {
     ctx.textAlign = "right";
     const timeEmoji = timeInfo.phase === "night" ? "🌙" : timeInfo.phase === "dawn" ? "🌅" : timeInfo.phase === "dusk" ? "🌇" : "☀️";
     ctx.fillStyle = timeInfo.phase === "night" ? "rgba(200,200,255,0.8)" : "rgba(255,255,255,0.7)";
-    ctx.fillText(`${timeEmoji} ${timeInfo.hourLabel}`, VIEWPORT_W - 8, VIEWPORT_H - 8);
+    ctx.fillText(`${timeEmoji} ${timeInfo.hourLabel}`, VW - 8, VH - 8);
 
     // 축제 이펙트 (화면 가장자리 반짝이)
     if (festivalUntil && Date.now() < festivalUntil) {
       for (let i = 0; i < 8; i++) {
-        const fx = Math.random() * VIEWPORT_W;
-        const fy = Math.random() * VIEWPORT_H;
+        const fx = Math.random() * VW;
+        const fy = Math.random() * VH;
         ctx.font = `${10 + Math.random() * 10}px sans-serif`;
         ctx.fillText(["🎉", "🎊", "✨", "🎶", "💃"][Math.floor(Math.random() * 5)], fx, fy);
       }
@@ -1524,11 +1549,11 @@ export default function VillagePage() {
       ctx.font = "bold 12px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(251, 191, 36, 0.8)";
-      ctx.fillText(`✨ "${villageSlogan}" ✨`, VIEWPORT_W / 2, 18);
+      ctx.fillText(`✨ "${villageSlogan}" ✨`, VW / 2, 18);
     }
 
     // Minimap (bottom-left corner)
-    const mmW = 160, mmH = 120, mmX = 10, mmY = VIEWPORT_H - mmH - 10;
+    const mmW = 160, mmH = 120, mmX = 10, mmY = VH - mmH - 10;
     ctx.fillStyle = "rgba(26,46,26,0.85)";
     ctx.fillRect(mmX, mmY, mmW, mmH);
     ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
@@ -1570,61 +1595,57 @@ export default function VillagePage() {
     ctx.strokeRect(
       mmX + (cameraX / MAP_WIDTH) * mmW,
       mmY + (cameraY / MAP_HEIGHT) * mmH,
-      (VIEWPORT_W / MAP_WIDTH) * mmW,
-      (VIEWPORT_H / MAP_HEIGHT) * mmH,
+      (VW / MAP_WIDTH) * mmW,
+      (VH / MAP_HEIGHT) * mmH,
     );
 
-  }, [agents, bubbles, godEffect, worldObjects, cameraX, cameraY]);
+  }, [agents, bubbles, godEffect, worldObjects, cameraX, cameraY, viewportSize]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center p-4 md:p-8">
-      <div className="mb-4 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">🏘️ Agent Village</h1>
-        <p className="text-zinc-400 mt-1 text-sm">AI 에이전트들이 마을에서 살아가는 모습을 관찰하세요 · 드래그로 이동</p>
+    <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
+      {/* 상단 바 */}
+      <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/80 border-b border-zinc-800 shrink-0 flex-wrap">
+        <h1 className="text-lg font-bold">🏘️ Agent Village</h1>
         {(() => {
           const t = getTimeOfDay(villageStartTime);
           const emoji = t.phase === "night" ? "🌙" : t.phase === "dawn" ? "🌅" : t.phase === "dusk" ? "🌇" : "☀️";
-          return <p className="text-amber-400/80 mt-1 text-xs font-mono">📅 {villageDays}일차 {emoji} {t.hourLabel}</p>;
+          return <span className="text-amber-400/80 text-xs font-mono">📅 {villageDays}일차 {emoji} {t.hourLabel}</span>;
         })()}
-      </div>
-
-      <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
         <button onClick={() => setIsRunning(!isRunning)}
-          className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isRunning ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"}`}>
-          {isRunning ? "⏸ 일시정지" : "▶️ 시작"}
+          className={`px-3 py-1 rounded font-bold text-xs transition-all ${isRunning ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"}`}>
+          {isRunning ? "⏸" : "▶️"}
         </button>
-        <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <span>에이전트:</span>
-          {[3, 4, 5].map((n) => (
-            <button key={n} onClick={() => { setAgentCount(n); setConversationLog([]); setRelationships(new Map()); relationshipsRef.current = new Map(); bubblesRef.current = []; pendingChatsRef.current = new Set(); }}
-              className={`px-3 py-1 rounded text-xs font-bold transition-all ${agentCount === n ? "bg-indigo-500 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
-              {n}명
-            </button>
-          ))}
-          <span className="ml-2 px-3 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
-            👥 인구: {agents.length}명
-          </span>
-          {(["civilian", "police", "soldier", "thug"] as AgentClass[]).map(cls => (
-            <button key={cls} onClick={() => spawnAgent(cls)}
-              className={`px-2 py-1 rounded text-xs font-bold transition-all border ${CLASS_CONFIG[cls].btnColor}`}>
-              {CLASS_CONFIG[cls].btnEmoji} {CLASS_CONFIG[cls].label}
-            </button>
-          ))}
-        </div>
+        {[3, 4, 5].map((n) => (
+          <button key={n} onClick={() => { setAgentCount(n); setConversationLog([]); setRelationships(new Map()); relationshipsRef.current = new Map(); bubblesRef.current = []; pendingChatsRef.current = new Set(); }}
+            className={`px-2 py-1 rounded text-xs font-bold transition-all ${agentCount === n ? "bg-indigo-500 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
+            {n}명
+          </button>
+        ))}
+        <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
+          👥 {agents.length}명
+        </span>
+        {(["civilian", "police", "soldier", "thug"] as AgentClass[]).map(cls => (
+          <button key={cls} onClick={() => spawnAgent(cls)}
+            className={`px-2 py-1 rounded text-xs font-bold transition-all border ${CLASS_CONFIG[cls].btnColor}`}>
+            {CLASS_CONFIG[cls].btnEmoji} {CLASS_CONFIG[cls].label}
+          </button>
+        ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 w-full max-w-[1200px]">
-        <div className="flex-1 flex justify-center">
-          <div className={`relative rounded-xl overflow-hidden border shadow-2xl transition-all duration-500 ${godEffect ? "border-amber-500/60 shadow-amber-500/30" : "border-zinc-800"}`}
+      {/* 메인: 캔버스(왼쪽) + 패널(오른쪽) */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* 캔버스 — 왼쪽 풀 */}
+        <div ref={canvasContainerRef} className="flex-1 overflow-hidden">
+          <div className={`h-full transition-all duration-500 ${godEffect ? "shadow-amber-500/30" : ""}`}
             style={{ cursor: isDragging.current ? "grabbing" : "grab" }}>
-            <canvas ref={canvasRef} width={VIEWPORT_W} height={VIEWPORT_H} className="block"
-              onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-              style={{ maxWidth: "100%", height: "auto" }} />
+            <canvas ref={canvasRef} width={viewportSize.w} height={viewportSize.h} className="block w-full h-full"
+              onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} />
           </div>
         </div>
 
-        <div className="w-full lg:w-[320px] flex flex-col gap-4 lg:max-h-[calc(100vh-120px)] lg:overflow-hidden">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shrink-0">
+        {/* 오른쪽 패널 */}
+        <div className="w-[320px] shrink-0 flex flex-col gap-2 p-2 overflow-y-auto border-l border-zinc-800 bg-zinc-900/50">
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 shrink-0">
             <h3 className="text-sm font-bold text-zinc-300 mb-3">🤝 관계도</h3>
             <div className="space-y-2 max-h-[120px] overflow-y-auto">
               {Array.from(relationships.values()).map((rel) => {
@@ -1640,7 +1661,7 @@ export default function VillagePage() {
           </div>
 
           {/* 🏛️ 마을 현황 */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shrink-0">
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 shrink-0">
             <h3 className="text-sm font-bold text-zinc-300 mb-2">🏛️ 마을 현황</h3>
             {villageSlogan && <div className="text-xs text-amber-400 italic mb-2 text-center">&quot;{villageSlogan}&quot;</div>}
             {festivalUntil && Date.now() < festivalUntil && <div className="text-xs text-pink-400 font-bold mb-2 text-center animate-pulse">🎊 축제 진행중! 🎊</div>}
@@ -1668,7 +1689,7 @@ export default function VillagePage() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex-1 min-h-0 flex flex-col">
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 flex-1 min-h-0 flex flex-col">
             <h3 className="text-sm font-bold text-zinc-300 mb-3 shrink-0">💬 대화 기록</h3>
             <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0">
               {conversationLog.map((log, i) => (
