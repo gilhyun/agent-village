@@ -163,6 +163,12 @@ export default function VillagePage() {
   const dragStart = useRef({ x: 0, y: 0 });
   const cameraStart = useRef({ x: 0, y: 0 });
 
+  // 🪙 크립토 리서치
+  const [coinPicks, setCoinPicks] = useState<{ symbol: string; name: string; reason: string; confidence: number; pickedBy: string; price?: number; change24h?: number }[]>([]);
+  const [consensus, setConsensus] = useState<{ symbol: string; name: string; voters: string[]; avgConfidence: number; price?: number; change24h?: number }[]>([]);
+  const [isResearching, setIsResearching] = useState(false);
+  const lastResearchRef = useRef(0);
+
   const agentsRef = useRef<Agent[]>([]);
   const relationshipsRef = useRef<Map<string, Relationship>>(new Map());
   const bubblesRef = useRef<ChatBubble[]>([]);
@@ -1125,6 +1131,43 @@ export default function VillagePage() {
         setAgents([...agentsRef.current]);
       }
 
+      // 🪙 크립토 리서치 (5분마다)
+      if (tickRef.current % 3000 === 500 && !isResearching && Date.now() - lastResearchRef.current > 4 * 60 * 1000) {
+        setIsResearching(true);
+        lastResearchRef.current = Date.now();
+        const researchAgents = agentsRef.current.filter(a => !a.isDead && !a.isBaby).slice(0, 5).map(a => ({
+          name: a.name, emoji: a.emoji, personality: a.personality,
+        }));
+        fetch("/api/research", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agents: researchAgents }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.picks?.length) {
+              setCoinPicks(prev => [...prev, ...data.picks].slice(-30));
+              data.picks.forEach((p: any) => {
+                bubblesRef.current = [...bubblesRef.current, {
+                  id: `pick-${Date.now()}-${p.pickedBy}`,
+                  agentId: agentsRef.current.find(a => a.name === p.pickedBy)?.id || "",
+                  text: `📊 ${p.symbol} 추천! (확신 ${p.confidence}/10)`,
+                  timestamp: Date.now(),
+                  duration: 8000,
+                }];
+              });
+              setBubbles([...bubblesRef.current]);
+              setConversationLog(prev => [
+                `🔬 리서치 완료! ${data.picks.map((p: any) => `${p.pickedBy}→${p.symbol}`).join(", ")}`,
+                ...prev,
+              ].slice(0, 50));
+            }
+            if (data.consensus) setConsensus(data.consensus);
+            setIsResearching(false);
+          })
+          .catch(() => setIsResearching(false));
+      }
+
       // 🏛️ 이장 선출 + 월급 (매 600틱 = ~10초)
       if (tickRef.current % 600 === 0 && tickRef.current > 0) {
         // 이장 월급 지급 (매 10초마다 100만원)
@@ -1795,6 +1838,81 @@ export default function VillagePage() {
 
         {/* 오른쪽 패널 */}
         <div className="w-[320px] shrink-0 flex flex-col gap-2 p-2 overflow-y-auto border-l border-zinc-800 bg-zinc-900/50">
+
+          {/* 🪙 추천 종목 */}
+          <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900/80 border border-amber-700/30 rounded-lg p-3 shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-amber-300">🪙 AI 추천 종목</h3>
+              {isResearching && <span className="text-[10px] text-amber-400 animate-pulse">🔬 리서치 중...</span>}
+              <button
+                onClick={() => {
+                  if (isResearching) return;
+                  setIsResearching(true);
+                  lastResearchRef.current = Date.now();
+                  const researchAgents = agents.filter(a => !a.isDead && !a.isBaby).slice(0, 5).map(a => ({
+                    name: a.name, emoji: a.emoji, personality: a.personality,
+                  }));
+                  fetch("/api/research", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ agents: researchAgents }),
+                  })
+                    .then(r => r.json())
+                    .then(data => {
+                      if (data.picks?.length) {
+                        setCoinPicks(prev => [...prev, ...data.picks].slice(-30));
+                        setConversationLog(prev => [
+                          `🔬 리서치 완료! ${data.picks.map((p: any) => `${p.pickedBy}→${p.symbol}`).join(", ")}`,
+                          ...prev,
+                        ].slice(0, 50));
+                      }
+                      if (data.consensus) setConsensus(data.consensus);
+                      setIsResearching(false);
+                    })
+                    .catch(() => setIsResearching(false));
+                }}
+                disabled={isResearching}
+                className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600/30 text-amber-300 border border-amber-600/40 hover:bg-amber-600/50 disabled:opacity-40"
+              >
+                🔍 리서치
+              </button>
+            </div>
+
+            {/* 컨센서스 (2명 이상 동의) */}
+            {consensus.length > 0 && (
+              <div className="mb-2">
+                <div className="text-[10px] text-amber-400/70 mb-1 font-bold">🏆 컨센서스 (2명+ 동의)</div>
+                {consensus.slice(0, 3).map((c, i) => (
+                  <div key={c.symbol} className="flex items-center gap-2 bg-amber-500/10 rounded p-1.5 mb-1 border border-amber-500/20">
+                    <span className="text-amber-300 font-bold text-xs">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-white">{c.symbol} <span className="text-zinc-400 font-normal">{c.name}</span></div>
+                      <div className="text-[10px] text-zinc-400">
+                        {c.price && `$${c.price.toLocaleString()}`}
+                        {c.change24h !== undefined && <span className={c.change24h >= 0 ? "text-emerald-400 ml-1" : "text-red-400 ml-1"}>{c.change24h >= 0 ? "+" : ""}{c.change24h.toFixed(1)}%</span>}
+                      </div>
+                      <div className="text-[10px] text-amber-300/60">{c.voters.join(", ")} · 확신 {c.avgConfidence}/10</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 개별 추천 */}
+            <div className="text-[10px] text-zinc-500 mb-1 font-bold">📋 최근 추천</div>
+            <div className="space-y-1 max-h-[150px] overflow-y-auto">
+              {coinPicks.length === 0 && <div className="text-[10px] text-zinc-600 text-center py-2">리서치 버튼을 눌러보세요!</div>}
+              {coinPicks.slice(-8).reverse().map((p, i) => (
+                <div key={`${p.symbol}-${p.pickedBy}-${i}`} className="text-[10px] text-zinc-400 flex items-start gap-1">
+                  <span className="text-amber-300 shrink-0">{p.pickedBy}:</span>
+                  <span className="text-white font-bold shrink-0">{p.symbol}</span>
+                  <span className="truncate">{p.reason.slice(0, 40)}...</span>
+                  <span className="shrink-0 text-amber-400">{p.confidence}/10</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 shrink-0">
             <h3 className="text-sm font-bold text-zinc-300 mb-3">🤝 관계도</h3>
             <div className="space-y-2 max-h-[120px] overflow-y-auto">
