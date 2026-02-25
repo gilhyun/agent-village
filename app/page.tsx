@@ -964,8 +964,8 @@ export default function VillagePage() {
           return { ...agent, state: "walking" as const, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
         }
         const speedMult = (getLawEffect(villageLawsRef.current, "speed_bonus") as number) || 1;
-        const vehicleBonus = agent.vehicle?.speedBonus || 0;
-        const actualSpeed = (agent.speed + vehicleBonus) * speedMult;
+        const vehicleMult = agent.vehicle ? (1 + agent.vehicle.speedBonus) : 1;
+        const actualSpeed = agent.speed * vehicleMult * speedMult;
         return { ...agent, x: agent.x + (dx / dist) * actualSpeed, y: agent.y + (dy / dist) * actualSpeed };
       });
 
@@ -1548,6 +1548,76 @@ export default function VillagePage() {
       const frame = getFrame(agent.state, tick);
       const flip = agent.targetX < agent.x;
 
+      // 🛴 탈것 타고 이동 중이면 탈것 렌더링
+      if (agent.vehicle && agent.state === "walking") {
+        // 그림자 (속도에 따라 길쭉)
+        const shadowW = 14 + agent.vehicle.speedBonus * 2;
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(agent.x, agent.y + 14, shadowW, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 속도선 (빠를수록 많이)
+        if (agent.vehicle.speedBonus >= 2) {
+          ctx.strokeStyle = "rgba(200,200,200,0.3)";
+          ctx.lineWidth = 1;
+          const lines = Math.min(Math.floor(agent.vehicle.speedBonus), 5);
+          for (let i = 0; i < lines; i++) {
+            const lx = flip ? agent.x + 12 + i * 4 : agent.x - 12 - i * 4;
+            const ly = agent.y - 4 + i * 3 + Math.sin(tick * 0.3 + i) * 2;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(lx + (flip ? 8 : -8), ly);
+            ctx.stroke();
+          }
+        }
+
+        // 먼지 파티클 (스쿠터 이상)
+        if (agent.vehicle.speedBonus >= 3) {
+          ctx.fillStyle = "rgba(180,160,120,0.3)";
+          for (let i = 0; i < 3; i++) {
+            const dx = flip ? 10 + i * 5 : -10 - i * 5;
+            const dy = 8 + Math.sin(tick * 0.5 + i * 2) * 4;
+            const sz = 2 + Math.random() * 2;
+            ctx.beginPath();
+            ctx.arc(agent.x + dx, agent.y + dy, sz, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // 탈것 이모지 (큰 사이즈)
+        const vSize = 16 + Math.min(agent.vehicle.speedBonus * 2, 10);
+        ctx.font = `${vSize}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.save();
+        if (flip) {
+          ctx.translate(agent.x, agent.y);
+          ctx.scale(-1, 1);
+          ctx.fillText(agent.vehicle.emoji, 0, 4);
+        } else {
+          ctx.fillText(agent.vehicle.emoji, agent.x, agent.y + 4);
+        }
+        ctx.restore();
+
+        // 미니 캐릭터 (탈것 위에 작게)
+        ctx.font = "8px sans-serif";
+        ctx.fillText(agent.emoji, agent.x, agent.y - 8);
+
+        // 이름
+        ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+        ctx.fillText(agent.name, agent.x, agent.y + 22);
+
+        // 코인 + 평판 (탈것 타고 있을때도)
+        if (agent.coins !== undefined && !agent.isBaby) {
+          ctx.font = "8px sans-serif";
+          ctx.fillStyle = "#fbbf24";
+          const repColor = agent.reputation >= 70 ? "#34d399" : agent.reputation >= 40 ? "#fbbf24" : "#f87171";
+          ctx.fillText(`₿${agent.coins < 0.01 ? (agent.coins * 1e8).toFixed(0) + "s" : agent.coins.toFixed(4)}`, agent.x, agent.y + 30);
+          ctx.fillStyle = repColor;
+          ctx.fillText(`⭐${agent.reputation}`, agent.x, agent.y + 38);
+        }
+      } else {
+      // 기존 도보 렌더링
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.beginPath();
       ctx.ellipse(agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 2, 12, 4, 0, 0, Math.PI * 2);
@@ -1638,12 +1708,7 @@ export default function VillagePage() {
         ctx.fillRect(headX + 1, feetY - 2, 4, 3);
       }
 
-      // 🛴 탈것
-      if (agent.vehicle && agent.state === "walking") {
-        ctx.font = "12px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(agent.vehicle.emoji, agent.x, feetY + 4);
-      }
+      // 🛴 탈것 (도보 렌더링 안에서는 이미 위에서 처리)
 
       if (agent.state === "talking") {
         ctx.strokeStyle = "rgba(251, 191, 36, 0.6)"; ctx.lineWidth = 2;
@@ -1653,6 +1718,8 @@ export default function VillagePage() {
 
       ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
+
+      } // 도보 렌더링 else 블록 끝
 
       // 💤 잠자는 표시
       if (agent.state === "idle" && !agent.isDead) {
