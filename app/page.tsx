@@ -884,12 +884,13 @@ export default function VillagePage() {
           if (arrivedDest && arrivedDest.startsWith("house-") && arrivedDest !== agent.homeId && !agent.isBaby) {
             const homeOwner = agentsRef.current.find(a => a.homeId === arrivedDest && a.id !== agent.id);
             const stealAllowed = getLawEffect(villageLawsRef.current, "steal_allowed");
-            // 직업별 도둑질 확률: 경찰/군인 0%, 건달 30%, 시민 10%
+            // 직업별 도둑질 확률: 경찰/군인 0%, 건달 50%, 시민 10%
             const isPoliceOrSoldier = agent.id.includes("-police-") || agent.id.includes("-soldier-");
             const isThug = agent.id.includes("-thug-");
-            const stealChance = isPoliceOrSoldier ? 0 : isThug ? 0.30 : 0.10;
+            const stealChance = isPoliceOrSoldier ? 0 : isThug ? 0.50 : 0.10;
             if (homeOwner && Math.random() < stealChance) {
-              const stealAmount = Math.floor(homeOwner.coins * (0.05 + Math.random() * 0.10));
+              const stealRate = isThug ? (0.15 + Math.random() * 0.25) : (0.05 + Math.random() * 0.10);
+              const stealAmount = parseFloat((homeOwner.coins * stealRate).toFixed(8));
               if (stealAmount > 0) {
                 if (stealAllowed === true) {
                   // 도둑질 합법!
@@ -1012,6 +1013,16 @@ export default function VillagePage() {
           if (a.isDead || b.isDead) continue; // 죽은 에이전트 대화 불가
           const dist = distance(a, b);
           if (dist < INTERACTION_DISTANCE) {
+            // 건달 시비 걸기
+            const thugTaunts = ["야 뭘 봐?", "주머니에 뭐 있어?", "여기 내 구역인데?", "돈 놔두고 가", "시비 붙을래?", "약한 놈이네 ㅋ", "가진 거 내놔", "🔪 칼 맛 볼래?"];
+            if (a.agentClass === "thug" && b.agentClass !== "thug" && Math.random() < 0.3) {
+              bubblesRef.current = [...bubblesRef.current, { id: `taunt-${Date.now()}-${a.id}`, agentId: a.id, text: thugTaunts[Math.floor(Math.random() * thugTaunts.length)], timestamp: Date.now(), duration: 3000 }];
+              setBubbles([...bubblesRef.current]);
+            }
+            if (b.agentClass === "thug" && a.agentClass !== "thug" && Math.random() < 0.3) {
+              bubblesRef.current = [...bubblesRef.current, { id: `taunt-${Date.now()}-${b.id}`, agentId: b.id, text: thugTaunts[Math.floor(Math.random() * thugTaunts.length)], timestamp: Date.now(), duration: 3000 }];
+              setBubbles([...bubblesRef.current]);
+            }
             const key = relationshipKey(a.id, b.id);
             if (!pendingChatsRef.current.has(key)) {
               let rel = relationshipsRef.current.get(key);
@@ -1065,6 +1076,39 @@ export default function VillagePage() {
         return agent;
       });
 
+      // 🔪 건달 노상강도 (매 180틱)
+      if (tickRef.current % 180 === 0) {
+        const thugs = agentsRef.current.filter(a => a.agentClass === "thug" && !a.isDead && !a.isBaby);
+        for (const thug of thugs) {
+          if (Math.random() > 0.3) continue; // 30% 확률
+          const nearby = agentsRef.current.find(a =>
+            a.id !== thug.id && !a.isDead && !a.isBaby &&
+            a.agentClass !== "thug" && a.agentClass !== "police" && a.agentClass !== "soldier" &&
+            a.coins > 0 &&
+            Math.sqrt((a.x - thug.x) ** 2 + (a.y - thug.y) ** 2) < 50
+          );
+          if (nearby) {
+            const robAmount = parseFloat((nearby.coins * (0.1 + Math.random() * 0.2)).toFixed(8));
+            if (robAmount > 0) {
+              agentsRef.current = agentsRef.current.map(ag => {
+                if (ag.id === nearby.id) return { ...ag, coins: parseFloat((ag.coins - robAmount).toFixed(8)) };
+                if (ag.id === thug.id) return { ...ag, coins: parseFloat((ag.coins + robAmount).toFixed(8)) };
+                return ag;
+              });
+              const robMsgs = ["돈 내놔! 🔪", "통행세다!", "어이 지갑!", "삥 뜯기 ㅋ"];
+              bubblesRef.current = [
+                ...bubblesRef.current,
+                { id: `rob-${Date.now()}-t`, agentId: thug.id, text: robMsgs[Math.floor(Math.random() * robMsgs.length)], timestamp: Date.now(), duration: 3000 },
+                { id: `rob-${Date.now()}-v`, agentId: nearby.id, text: `😨 -${formatCoins(robAmount)}!`, timestamp: Date.now(), duration: 3000 },
+              ];
+              setBubbles([...bubblesRef.current]);
+              setConversationLog(prev => [`🔪 ${thug.emoji} ${thug.name}이(가) ${nearby.emoji} ${nearby.name}에게서 ${formatCoins(robAmount)} 삥 뜯음!`, ...prev].slice(0, 50));
+              setAgents([...agentsRef.current]);
+            }
+          }
+        }
+      }
+
       // ⚔️ 전투 시스템 (매 120틱 = ~2초)
       if (tickRef.current % 120 === 0) {
         const aliveAgents = agentsRef.current.filter(a => !a.isDead && !a.isBaby);
@@ -1083,10 +1127,10 @@ export default function VillagePage() {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > ATTACK_RANGE) continue;
 
-            // 군인/경찰은 건달만 공격 / 건달은 아무나 공격 (20% 확률)
+            // 군인/경찰은 건달만 공격 / 건달은 아무나 공격 (40% 확률)
             const shouldAttack = isLaw
               ? target.agentClass === "thug"
-              : Math.random() < 0.2;
+              : Math.random() < 0.4;
             if (!shouldAttack) continue;
 
             // 데미지 계산
