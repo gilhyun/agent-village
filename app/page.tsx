@@ -173,6 +173,10 @@ export default function VillagePage() {
 
   // 🪙 크립토 리서치
   const [coinPicks, setCoinPicks] = useState<{ symbol: string; name: string; reason: string; confidence: number; pickedBy: string; price?: number; change24h?: number }[]>([]);
+
+  // 🪦 묘지
+  const [graves, setGraves] = useState<{ name: string; emoji: string; cause: string; time: number }[]>([]);
+  const gravesRef = useRef<{ name: string; emoji: string; cause: string; time: number }[]>([]);
   const [consensus, setConsensus] = useState<{ symbol: string; name: string; voters: string[]; avgConfidence: number; price?: number; change24h?: number }[]>([]);
   const [isResearching, setIsResearching] = useState(false);
   const lastResearchRef = useRef(0);
@@ -1149,6 +1153,8 @@ export default function VillagePage() {
             agentsRef.current = agentsRef.current.map(ag => {
               if (ag.id === target.id) {
                 if (newHp <= 0) {
+                  gravesRef.current = [...gravesRef.current, { name: target.name, emoji: target.emoji, cause: `${attacker.name}에게 처치됨`, time: Date.now() }];
+                  setGraves([...gravesRef.current]);
                   return { ...ag, hp: 0, isDead: true, deathTime: Date.now(), state: "idle" as const };
                 }
                 return { ...ag, hp: newHp };
@@ -1197,6 +1203,8 @@ export default function VillagePage() {
             if (elapsed > STARVATION_DAYS * DAY_DURATION) {
               setConversationLog(prev => [`💀🍽️ ${agent.emoji} ${agent.name}이(가) 굶어 죽었다...`, ...prev].slice(0, 50));
               bubblesRef.current = [...bubblesRef.current, { id: `starve-${Date.now()}-${agent.id}`, agentId: agent.id, text: "😵 배고파... 💀", timestamp: Date.now(), duration: 5000 }];
+              gravesRef.current = [...gravesRef.current, { name: agent.name, emoji: agent.emoji, cause: "아사", time: Date.now() }];
+              setGraves([...gravesRef.current]);
               return { ...agent, hunger: 0, hp: 0, isDead: true, deathTime: Date.now(), state: "idle" as const };
             }
           }
@@ -1946,6 +1954,40 @@ export default function VillagePage() {
         ctx.fillText(talkEmoji, agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 4, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2);
       }
     });
+
+    // 🪦 묘비 렌더링
+    const graveyard = VILLAGE_BUILDINGS.find(b => b.id === "graveyard");
+    if (graveyard && gravesRef.current.length > 0) {
+      gravesRef.current.forEach((grave, i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const gx = graveyard.x + 25 + col * 45;
+        const gy = graveyard.y + 25 + row * 40;
+
+        // 묘비 돌
+        ctx.fillStyle = "#6b7280";
+        ctx.beginPath();
+        ctx.moveTo(gx - 8, gy + 12);
+        ctx.lineTo(gx - 8, gy - 5);
+        ctx.quadraticCurveTo(gx, gy - 14, gx + 8, gy - 5);
+        ctx.lineTo(gx + 8, gy + 12);
+        ctx.closePath();
+        ctx.fill();
+
+        // 묘비 테두리
+        ctx.strokeStyle = "#9ca3af";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 이모지 + 이름
+        ctx.font = "7px sans-serif";
+        ctx.fillStyle = "#d1d5db";
+        ctx.textAlign = "center";
+        ctx.fillText(grave.emoji, gx, gy);
+        ctx.font = "5px sans-serif";
+        ctx.fillText(grave.name, gx, gy + 8);
+      });
+    }
 
     // Chat bubbles
     bubbles.forEach((bubble) => {

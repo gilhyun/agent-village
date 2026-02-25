@@ -720,6 +720,12 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "bench", x: 40, y: 95, w: 80, h: 15 },
     ],
   },
+  // 🪦 묘지
+  {
+    id: "graveyard", name: "묘지", emoji: "🪦", x: 1500, y: 1100, width: 200, height: 160, roofColor: "#374151", wallColor: "#4b5563", floorColor: "#1f2937",
+    wings: [],
+    furniture: [],
+  },
 ];
 
 // Decorations

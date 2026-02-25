@@ -1018,6 +1018,46 @@ export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
     return;
   }
 
+  // 🪦 묘지 — 울타리 + 잔디만
+  if (b.id === "graveyard") {
+    // 잔디 바닥
+    ctx.fillStyle = isDark ? "#1a2a10" : "#3a5a2a";
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+
+    // 어두운 잔디 패턴
+    ctx.fillStyle = isDark ? "#152008" : "#2d4a1e";
+    for (let i = 0; i < 20; i++) {
+      const gx = b.x + (Math.sin(i * 37) * 0.5 + 0.5) * b.width;
+      const gy = b.y + (Math.cos(i * 53) * 0.5 + 0.5) * b.height;
+      ctx.fillRect(gx, gy, 3 + (i % 3), 2);
+    }
+
+    // 나무 울타리
+    ctx.strokeStyle = isDark ? "#3a2a1a" : "#6b4c30";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(b.x + 2, b.y + 2, b.width - 4, b.height - 4);
+    // 울타리 기둥
+    ctx.fillStyle = isDark ? "#3a2a1a" : "#6b4c30";
+    for (let x = b.x; x <= b.x + b.width; x += 25) {
+      ctx.fillRect(x, b.y, 4, 8);
+      ctx.fillRect(x, b.y + b.height - 6, 4, 6);
+    }
+
+    // 입구
+    ctx.fillStyle = isDark ? "#1a2a10" : "#3a5a2a";
+    ctx.fillRect(b.x + b.width / 2 - 15, b.y + b.height - 4, 30, 6);
+
+    // 이름
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillStyle = "#9ca3af";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 3;
+    ctx.fillText("🪦 " + b.name, b.x + b.width / 2, b.y - 5);
+    ctx.shadowBlur = 0;
+    return;
+  }
+
   const wall = isDark ? "#2a2040" : b.wallColor;
   const floor = isDark ? "#1a1530" : b.floorColor;
   const wallDark = shadeColor(wall, -30);
