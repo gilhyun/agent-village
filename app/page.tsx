@@ -29,6 +29,7 @@ import {
   GROW_TIME_MS,
   isFamily,
   OUTFITS,
+  VEHICLES,
   HOME_UPGRADES,
   AgentOutfit,
   VillageLaw,
@@ -963,7 +964,8 @@ export default function VillagePage() {
           return { ...agent, state: "walking" as const, targetX: next.targetX, targetY: next.targetY, destination: next.destination };
         }
         const speedMult = (getLawEffect(villageLawsRef.current, "speed_bonus") as number) || 1;
-        const actualSpeed = agent.speed * speedMult;
+        const vehicleBonus = agent.vehicle?.speedBonus || 0;
+        const actualSpeed = (agent.speed + vehicleBonus) * speedMult;
         return { ...agent, x: agent.x + (dx / dist) * actualSpeed, y: agent.y + (dy / dist) * actualSpeed };
       });
 
@@ -1312,6 +1314,18 @@ export default function VillagePage() {
             }
           }
 
+          // 🛴 탈것 구매 (10%, 더 좋은 거 있으면 업그레이드)
+          if (Math.random() < 0.1 && agent.coins > 0.005) {
+            const currentBonus = agent.vehicle?.speedBonus || 0;
+            const upgrades = VEHICLES.filter(v => v.speedBonus > currentBonus && v.price <= agent.coins * 0.5);
+            if (upgrades.length > 0) {
+              const chosen = upgrades[0]; // 가장 싼 업그레이드
+              setConversationLog(prev => [`🛴 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name} 구매! (-${formatCoins(chosen.price)})`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `veh-${now}-${agent.id}`, agentId: agent.id, text: `${chosen.emoji} ${chosen.name}!`, timestamp: now, duration: 4000 }];
+              return { ...agent, coins: agent.coins - chosen.price, vehicle: { name: chosen.name, emoji: chosen.emoji, speedBonus: chosen.speedBonus } };
+            }
+          }
+
           // 10% 확률로 집 업그레이드 시도
           if (Math.random() < 0.1 && agent.homeId) {
             const currentLevel = agent.homeLevel || 0;
@@ -1622,6 +1636,13 @@ export default function VillagePage() {
         ctx.fillStyle = shoeColor;
         ctx.fillRect(headX - 5, feetY - 2, 4, 3);
         ctx.fillRect(headX + 1, feetY - 2, 4, 3);
+      }
+
+      // 🛴 탈것
+      if (agent.vehicle && agent.state === "walking") {
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(agent.vehicle.emoji, agent.x, feetY + 4);
       }
 
       if (agent.state === "talking") {

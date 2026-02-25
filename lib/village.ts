@@ -35,6 +35,8 @@ export interface Agent {
     accessory?: AgentOutfit | null;
     shoes?: AgentOutfit | null;
   };
+  // 🛴 탈것
+  vehicle?: { name: string; emoji: string; speedBonus: number } | null;
   // 🏠 집 레벨
   homeLevel?: number; // 0=기본, 1=중형, 2=대형, 3=맨션
   // ⭐ 평판 시스템
@@ -175,6 +177,16 @@ export const OUTFITS: (AgentOutfit & { price: number })[] = [
   { name: "요리사복", emoji: "👨‍🍳", category: "top", price: 0.01, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
   { name: "파티복", emoji: "🎉", category: "top", price: 0.03, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
   { name: "탐험가복", emoji: "🧭", category: "top", price: 0.015, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
+];
+
+// 🛴 탈것 목록
+export const VEHICLES = [
+  { name: "킥보드", emoji: "🛴", price: 0.005, speedBonus: 1.5 },
+  { name: "자전거", emoji: "🚲", price: 0.01, speedBonus: 2.0 },
+  { name: "스쿠터", emoji: "🛵", price: 0.03, speedBonus: 3.0 },
+  { name: "오토바이", emoji: "🏍️", price: 0.06, speedBonus: 4.0 },
+  { name: "스포츠카", emoji: "🏎️", price: 0.2, speedBonus: 5.0 },
+  { name: "람보르기니", emoji: "🚗", price: 0.5, speedBonus: 6.0 },
 ];
 
 // 집 업그레이드 비용
