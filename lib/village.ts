@@ -114,6 +114,7 @@ export interface AgentProduct {
 export interface AgentOutfit {
   name: string;
   emoji: string;
+  category?: string; // hat, top, bottom, accessory, shoes, cape
   hairColor?: string;
   shirtColor?: string;
   pantsColor?: string;
@@ -122,14 +123,47 @@ export interface AgentOutfit {
 
 // 옷 상점 목록
 export const OUTFITS: (AgentOutfit & { price: number })[] = [
-  { name: "캐주얼룩", emoji: "👕", price: 0.005, shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
-  { name: "정장", emoji: "🤵", price: 0.02, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "tie" },
-  { name: "운동복", emoji: "🏃", price: 0.003, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
-  { name: "파티복", emoji: "🎉", price: 0.03, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
-  { name: "왕관세트", emoji: "👑", price: 0.1, shirtColor: "#f1c40f", pantsColor: "#d4ac0d", accessory: "crown" },
-  { name: "과학자복", emoji: "🥼", price: 0.015, shirtColor: "#ecf0f1", pantsColor: "#bdc3c7", accessory: "glasses" },
-  { name: "요리사복", emoji: "👨‍🍳", price: 0.01, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
-  { name: "탐험가복", emoji: "🧭", price: 0.015, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
+  // 🧢 모자
+  { name: "비니", emoji: "🧢", category: "hat", price: 0.001, accessory: "beanie", shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
+  { name: "야구모자", emoji: "🧢", category: "hat", price: 0.002, accessory: "cap", shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
+  { name: "중절모", emoji: "🎩", category: "hat", price: 0.008, accessory: "hat", shirtColor: "#1a1a2e", pantsColor: "#16213e" },
+  { name: "왕관", emoji: "👑", category: "hat", price: 0.1, accessory: "crown", shirtColor: "#f1c40f", pantsColor: "#d4ac0d" },
+
+  // 🧥 망토
+  { name: "빨간망토", emoji: "🦸", category: "cape", price: 0.015, shirtColor: "#cc2222", pantsColor: "#2c3e50", accessory: "cape_red" },
+  { name: "검은망토", emoji: "🦹", category: "cape", price: 0.02, shirtColor: "#1a1a1a", pantsColor: "#0d0d0d", accessory: "cape_black" },
+  { name: "마법사망토", emoji: "🧙", category: "cape", price: 0.05, shirtColor: "#4a0080", pantsColor: "#2a0050", accessory: "cape_purple" },
+
+  // 👕 윗도리
+  { name: "캐주얼 티", emoji: "👕", category: "top", price: 0.002, shirtColor: "#4a90d9", pantsColor: "#2d5a8a" },
+  { name: "정장 셔츠", emoji: "👔", category: "top", price: 0.008, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "tie" },
+  { name: "나시", emoji: "🩱", category: "top", price: 0.001, shirtColor: "#e8c170", pantsColor: "#2c3e50" },
+  { name: "패딩", emoji: "🧥", category: "top", price: 0.012, shirtColor: "#2d4a6f", pantsColor: "#1a3050" },
+  { name: "후드티", emoji: "🧥", category: "top", price: 0.005, shirtColor: "#555555", pantsColor: "#333333" },
+
+  // 👖 하의
+  { name: "청바지", emoji: "👖", category: "bottom", price: 0.003, shirtColor: "#4a90d9", pantsColor: "#3a6aa0" },
+  { name: "반바지", emoji: "🩳", category: "bottom", price: 0.002, shirtColor: "#4a90d9", pantsColor: "#c8a050" },
+  { name: "치마", emoji: "👗", category: "bottom", price: 0.004, shirtColor: "#ec4899", pantsColor: "#db2777" },
+  { name: "운동바지", emoji: "🏃", category: "bottom", price: 0.002, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
+
+  // 💍 악세서리
+  { name: "목걸이", emoji: "📿", category: "accessory", price: 0.006, shirtColor: "#4a90d9", pantsColor: "#2d5a8a", accessory: "necklace" },
+  { name: "귀걸이", emoji: "💎", category: "accessory", price: 0.004, shirtColor: "#4a90d9", pantsColor: "#2d5a8a", accessory: "earring" },
+  { name: "팔찌", emoji: "⌚", category: "accessory", price: 0.003, shirtColor: "#4a90d9", pantsColor: "#2d5a8a", accessory: "bracelet" },
+  { name: "선글라스", emoji: "🕶️", category: "accessory", price: 0.005, shirtColor: "#1a1a1a", pantsColor: "#0d0d0d", accessory: "glasses" },
+
+  // 👟 신발
+  { name: "운동화", emoji: "👟", category: "shoes", price: 0.002, shirtColor: "#4a90d9", pantsColor: "#2d5a8a", accessory: "sneakers" },
+  { name: "구두", emoji: "👞", category: "shoes", price: 0.006, shirtColor: "#1a1a2e", pantsColor: "#16213e", accessory: "dress_shoes" },
+  { name: "부츠", emoji: "🥾", category: "shoes", price: 0.008, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "boots" },
+
+  // 🎽 세트
+  { name: "체육복", emoji: "🎽", category: "top", price: 0.003, shirtColor: "#e74c3c", pantsColor: "#2c3e50" },
+  { name: "과학자복", emoji: "🥼", category: "top", price: 0.015, shirtColor: "#ecf0f1", pantsColor: "#bdc3c7", accessory: "glasses" },
+  { name: "요리사복", emoji: "👨‍🍳", category: "top", price: 0.01, shirtColor: "#ffffff", pantsColor: "#2c3e50", accessory: "chef_hat" },
+  { name: "파티복", emoji: "🎉", category: "top", price: 0.03, shirtColor: "#9b59b6", pantsColor: "#8e44ad", accessory: "hat" },
+  { name: "탐험가복", emoji: "🧭", category: "top", price: 0.015, shirtColor: "#8b7355", pantsColor: "#5c4033", accessory: "hat" },
 ];
 
 // 집 업그레이드 비용
