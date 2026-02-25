@@ -1828,11 +1828,45 @@ export default function VillagePage() {
       {/* 메인: 캔버스(왼쪽) + 패널(오른쪽) */}
       <div className="flex flex-1 overflow-hidden">
         {/* 캔버스 — 왼쪽 풀 */}
-        <div ref={canvasContainerRef} className="flex-1 overflow-hidden">
+        <div ref={canvasContainerRef} className="flex-1 overflow-hidden relative">
           <div className={`h-full transition-all duration-500 ${godEffect ? "shadow-amber-500/30" : ""}`}
             style={{ cursor: isDragging.current ? "grabbing" : "grab" }}>
             <canvas ref={canvasRef} width={viewportSize.w} height={viewportSize.h} className="block w-full h-full"
               onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} />
+          </div>
+
+          {/* ⚡ 신의 목소리 — 플로팅 */}
+          <div className="absolute bottom-3 right-3 w-[280px] bg-zinc-950/90 backdrop-blur border border-amber-700/40 rounded-xl p-3 shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-400">⚡ 신의 목소리</span>
+              <button onClick={() => setShowObjectPicker(!showObjectPicker)} className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/50">
+                {showObjectPicker ? "✕" : "🎁"}
+              </button>
+            </div>
+            {showObjectPicker && (
+              <div className="mb-2 grid grid-cols-6 gap-1">
+                {SPAWNABLE_OBJECTS.map((obj) => (
+                  <button key={obj.name} onClick={() => spawnObject(obj)} className="flex flex-col items-center p-1 rounded bg-zinc-800/80 hover:bg-purple-600/30 border border-zinc-700/50 hover:border-purple-500/40 transition-all" title={obj.name}>
+                    <span className="text-sm">{obj.emoji}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {worldObjects.length > 0 && (
+              <div className="mb-1.5 flex items-center justify-between text-[10px] text-purple-300/50">
+                <span>오브젝트: {worldObjects.length}개</span>
+                <button onClick={() => { worldObjectsRef.current = []; setWorldObjects([]); }} className="text-red-400/50 hover:text-red-400">제거</button>
+              </div>
+            )}
+            {lastDecree && <div className="text-[10px] text-amber-300/40 mb-1.5 italic truncate">"{lastDecree}"</div>}
+            <div className="flex gap-1.5">
+              <input type="text" value={godMessage} onChange={(e) => setGodMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendDecree()}
+                placeholder="명령을..." className="flex-1 bg-zinc-800/80 border border-amber-700/20 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/50" disabled={isSendingDecree} />
+              <button onClick={sendDecree} disabled={isSendingDecree || !godMessage.trim()}
+                className="px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500/80 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-xs font-bold rounded-lg transition-all">
+                {isSendingDecree ? "⏳" : "⚡"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1976,39 +2010,8 @@ export default function VillagePage() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-950/40 to-zinc-900 border border-amber-700/30 rounded-xl p-4 shrink-0">
-            <h3 className="text-sm font-bold text-amber-400 mb-3">⚡ 신의 목소리</h3>
-            <div className="mb-3">
-              <button onClick={() => setShowObjectPicker(!showObjectPicker)} className="w-full px-3 py-2 text-xs font-bold rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/40 transition-all">
-                {showObjectPicker ? "✕ 닫기" : "🎁 오브젝트 소환"}
-              </button>
-              {showObjectPicker && (
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
-                  {SPAWNABLE_OBJECTS.map((obj) => (
-                    <button key={obj.name} onClick={() => spawnObject(obj)} className="flex flex-col items-center gap-0.5 p-2 rounded-lg bg-zinc-800/80 hover:bg-purple-600/30 border border-zinc-700 hover:border-purple-500/40 transition-all">
-                      <span className="text-lg">{obj.emoji}</span><span className="text-[10px] text-zinc-400">{obj.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {worldObjects.length > 0 && (
-              <div className="mb-2 flex items-center justify-between text-xs text-purple-300/60">
-                <span>마을 오브젝트: {worldObjects.length}개</span>
-                <button onClick={() => { worldObjectsRef.current = []; setWorldObjects([]); }} className="text-red-400/60 hover:text-red-400 transition-colors">전부 제거</button>
-              </div>
-            )}
-            {lastDecree && <div className="text-xs text-amber-300/60 mb-2 italic truncate">마지막 명령: &quot;{lastDecree}&quot;</div>}
-            <div className="flex gap-2">
-              <input type="text" value={godMessage} onChange={(e) => setGodMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendDecree()}
-                placeholder="마을에 전할 말씀을..." className="flex-1 bg-zinc-800/80 border border-amber-700/30 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50" disabled={isSendingDecree} />
-              <button onClick={sendDecree} disabled={isSendingDecree || !godMessage.trim()}
-                className="px-4 py-2 bg-amber-600/80 hover:bg-amber-500/80 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-bold rounded-lg transition-all">
-                {isSendingDecree ? "⏳" : "⚡"}
-              </button>
-            </div>
-          </div>
-              {/* 법률 팝업 */}
+        </div>
+        {/* 법률 팝업 */}
       {showLawsPopup && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowLawsPopup(false)}>
           <div className="bg-zinc-900 border border-emerald-700/50 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -2039,7 +2042,6 @@ export default function VillagePage() {
           </div>
         </div>
       )}
-</div>
       </div>
     </div>
   );
