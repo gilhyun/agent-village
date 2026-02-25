@@ -1478,7 +1478,7 @@ export default function VillagePage() {
 
       const lineHeight = 15;
       const bubbleW = Math.min(Math.max(...lines.map(l => ctx.measureText(l).width)) + 16, 180);
-      const bubbleH = lines.length * lineHeight + 10;
+      const bubbleH = lines.length * lineHeight + 16;
       const bx = agent.x;
       const by = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - bubbleH - 5;
 
@@ -1491,7 +1491,7 @@ export default function VillagePage() {
       // 텍스트
       ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       lines.forEach((line, i) => {
-        ctx.fillText(line, bx, by + 8 + i * lineHeight);
+        ctx.fillText(line, bx, by + 12 + i * lineHeight);
       });
       ctx.globalAlpha = 1;
     });
