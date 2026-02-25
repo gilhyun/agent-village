@@ -1755,7 +1755,7 @@ export default function VillagePage() {
     <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
       {/* 상단 바 */}
       <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/80 border-b border-zinc-800 shrink-0 flex-wrap">
-        <h1 className="text-lg font-bold">🏘️ Agent Village</h1>
+        <h1 className="text-lg font-bold">🪙 Crypto Village</h1>
         {(() => {
           const t = getTimeOfDay(virtualElapsedRef.current);
           const emoji = t.phase === "night" ? "🌙" : t.phase === "dawn" ? "🌅" : t.phase === "dusk" ? "🌇" : "☀️";

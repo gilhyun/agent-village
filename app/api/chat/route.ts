@@ -7,97 +7,105 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 const relationshipMemories: Map<string, string[]> = new Map();
 export const godDecrees: string[] = [];
 
+// 크립토 시세 캐시 (5분마다 갱신)
+let cryptoCache: { data: string; timestamp: number } = { data: "", timestamp: 0 };
+async function getCryptoContext(): Promise<string> {
+  const now = Date.now();
+  if (now - cryptoCache.timestamp < 5 * 60 * 1000 && cryptoCache.data) {
+    return cryptoCache.data;
+  }
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=15&page=1&sparkline=false&price_change_percentage=24h,7d");
+    const coins = await res.json();
+    if (!Array.isArray(coins)) return cryptoCache.data || "";
+    const lines = coins.map((c: any) =>
+      `${c.symbol?.toUpperCase()}: $${c.current_price} (24h: ${c.price_change_percentage_24h?.toFixed(1)}%, 7d: ${c.price_change_percentage_7d_in_currency?.toFixed(1)}%)`
+    );
+    const trending = await fetch("https://api.coingecko.com/api/v3/search/trending").then(r => r.json()).catch(() => ({ coins: [] }));
+    const trendNames = (trending?.coins || []).slice(0, 5).map((c: any) => c.item?.name).filter(Boolean);
+    cryptoCache = {
+      data: `[실시간 시세]\n${lines.join("\n")}\n\n[트렌딩 코인] ${trendNames.join(", ")}`,
+      timestamp: now,
+    };
+    return cryptoCache.data;
+  } catch {
+    return cryptoCache.data || "[시세 데이터 없음]";
+  }
+}
+
 function getRelKey(a: string, b: string) {
   return `${a}→${b}`;
 }
 
-// ── 대화 주제 풀 (랜덤 선택) ──
+// ── 대화 주제 풀 (크립토 특화) ──
 const TOPICS = {
   stranger: [
-    "오늘 날씨 진짜 좋다면서 뭐 하고 다니냐고 물어봐.",
-    "이 마을에서 제일 맛있는 집이 어딘지 물어봐.",
-    "아까 길에서 재밌는 걸 봤다면서 이야기해봐.",
-    "요즘 뭐에 빠져있냐고 취미를 물어봐.",
-    "마을 카페 커피가 맛있다면서 추천해줘.",
+    "요즘 어떤 코인 보고 있냐고 물어봐.",
+    "비트코인 지금 들어가도 될까 의견을 물어봐.",
+    "밈코인 투자해본 적 있냐고 물어봐.",
+    "이 마을에서 코인 잘 하는 사람이 누군지 물어봐.",
+    "요즘 크립토 시장 분위기가 어떤 것 같냐고 물어봐.",
   ],
   acquaintance: [
-    "요즘 뭐 하면서 사는지 가벼운 근황 토크를 해.",
-    "마을에서 제일 좋아하는 장소에 대해 이야기해.",
-    "최근에 재미있는 일이 있었냐고 물어봐.",
-    "좋아하는 음식에 대해 이야기해.",
-    "오늘 아침에 뭐 했는지 이야기해.",
-    "마을 카페 메뉴 중 뭐가 맛있는지 추천해달라고 해.",
-    "어제 밤에 잘 잤냐고 안부를 물어.",
+    "최근에 수익 난 코인이 뭔지 물어봐.",
+    "솔라나 vs 이더리움 어느 체인이 더 유망한지 토론해.",
+    "디파이에서 이자 농사 하고 있냐고 물어봐.",
+    "요즘 트렌딩 코인 뭔지 정보 교환해.",
+    "NFT 아직 살아있다고 생각하냐고 물어봐.",
+    "에어드롭 받은 거 있냐고 물어봐.",
+    "거래소 뭐 쓰냐고 물어봐.",
   ],
   friend: [
-    "요즘 고민이 있냐고 물어보고 친구로서 조언해줘.",
-    "같이 뭔가 해보자고 제안해. (낚시, 산책, 요리 등)",
-    "마을에 소문이나 재미있는 일 없냐고 물어봐.",
-    "서로의 꿈이나 앞으로 하고 싶은 것에 대해 이야기해.",
-    "웃긴 에피소드를 하나 들려줘.",
-    "좋아하는 계절이나 날씨에 대해 수다 떨어.",
-    "어릴 때 추억 얘기를 꺼내봐.",
-    "요즘 빠져있는 취미에 대해 신나게 이야기해.",
-    "서로 별명을 지어주자고 장난쳐.",
-    "마을 도서관에서 읽은 재밌는 책 이야기를 해.",
-    "오늘 뭐 먹을지 같이 고민해봐.",
-    "제일 가보고 싶은 곳이 어디냐고 물어봐.",
+    "다음 100배 코인이 뭔지 진지하게 토론해.",
+    "지금 포트폴리오 구성이 어떤지 서로 공유해.",
+    "비트코인 반감기 후 전망에 대해 깊이 토론해.",
+    "요즘 고래들 움직임이 이상하다면서 분석해.",
+    "레이어2 중에 뭐가 제일 유망한지 토론해.",
+    "AI 코인 섹터가 뜰 거라면서 분석해.",
+    "RWA(실물자산 토큰화) 트렌드에 대해 이야기해.",
+    "밈코인 시즌이 올 것 같다면서 대비 전략을 세워.",
   ],
   lover: [
-    "오늘 같이 뭐 할지 데이트 계획을 세워.",
-    "상대방의 좋은 점을 칭찬해.",
-    "함께하는 미래에 대해 설레는 이야기를 해.",
-    "질투심 가득한 장난을 쳐.",
-    "깜짝 선물을 준비했다고 해봐.",
-    "서로 처음 만났을 때 이야기를 해.",
-    "같이 별 보러 가자고 해.",
-    "상대방 없으면 심심하다고 투정 부려.",
+    "같이 투자할 코인을 골라보자고 해.",
+    "수익 나면 뭐 하고 싶은지 달달하게 이야기해.",
+    "상대방이 추천한 코인이 올랐다고 고마워해.",
+    "코인 차트 보다가 상대방 생각났다고 해.",
+    "같이 부자 되자면서 투자 목표를 세워.",
   ],
   married: [
-    "오늘 저녁 뭐 먹을지 의논해.",
-    "주말에 같이 뭐 하고 싶은지 계획을 세워.",
-    "상대방이 요즘 피곤해 보인다고 걱정해.",
-    "결혼 기념일 선물에 대해 얘기해.",
-    "집 인테리어 바꾸고 싶다고 이야기해.",
-    "서로에게 고마운 점을 말해.",
-    "오늘 마을에서 있었던 재밌는 일을 공유해.",
+    "가족 자산 중 코인 비중을 어떻게 할지 의논해.",
+    "이번 달 수익을 자랑하거나 손실을 고백해.",
+    "아이 교육비를 위해 안전한 코인에 투자하자고 해.",
+    "비트코인 존버 vs 알트코인 매매 전략을 토론해.",
   ],
   parent: [
-    "아이가 오늘 귀여운 짓을 했다고 이야기해.",
-    "아이 교육에 대해 의견을 나눠.",
-    "아이 생일 파티 계획을 세워.",
-    "아이가 처음 걸었을 때/말했을 때 추억을 이야기해.",
-    "육아 분담에 대해 얘기해.",
-    "아이에게 뭘 가르쳐줄지 이야기해.",
-    "가족 여행 가고 싶다고 이야기해.",
+    "아이에게 블록체인을 어떻게 설명할지 이야기해.",
+    "아이 미래를 위해 비트코인 적립하자고 해.",
+    "아이가 크면 크립토 네이티브 세대일 거라고 이야기해.",
   ],
 };
 
-// ── 장소별 대화 힌트 ──
+// ── 장소별 대화 힌트 (크립토) ──
 const LOCATION_HINTS: Record<string, string[]> = {
   "cafe": [
-    "카페에서 만났어. 커피나 차에 대해 이야기하거나 카페 분위기를 즐기면서 대화해.",
-    "카페 테이블에 앉아있어. 오늘의 메뉴나 디저트에 대해 이야기해.",
+    "카페에서 만났어. 노트북으로 차트를 보면서 코인 이야기를 해.",
+    "카페에서 커피 마시며 최근 시장 동향에 대해 편하게 대화해.",
   ],
   "library": [
-    "도서관에서 만났어. 최근 읽은 책이나 좋아하는 장르에 대해 이야기해.",
-    "도서관에서 만났어. 조용히 속삭이면서 재밌는 책을 추천해줘.",
-  ],
-  "plaza": [
-    "마을 회관에서 만났어. 벤치에 앉아서 편하게 수다 떨어.",
-    "마을 회관 안에서 지나가는 사람들을 구경하면서 이야기해.",
+    "도서관에서 만났어. 백서(whitepaper)나 리서치 자료에 대해 이야기해.",
+    "도서관에서 블록체인 기술 문서를 읽다가 만났어. 기술적인 이야기를 해.",
   ],
   "park": [
-    "공원에서 산책 중에 만났어. 자연이나 날씨에 대해 이야기해.",
-    "공원 벤치에서 쉬고 있어. 편안한 분위기에서 이야기해.",
+    "공원에서 만났어. 산책하면서 크립토 시장의 큰 흐름에 대해 이야기해.",
+    "공원 벤치에서 쉬면서 요즘 유망한 프로젝트에 대해 이야기해.",
   ],
   "market": [
-    "시장에서 만났어. 서로의 상품이나 장사, 물가에 대해 이야기해.",
-    "시장 가판대 사이를 걸으며 만났어. 뭘 사고 싶은지 이야기해.",
+    "시장(거래소)에서 만났어. 실시간 가격이나 거래 전략에 대해 이야기해.",
+    "시장 근처에서 만났어. 매수/매도 타이밍에 대해 토론해.",
   ],
   "home": [
-    "집에서 만났어. 편안한 분위기에서 속깊은 이야기를 해.",
-    "집에 놀러 왔어. 집꾸미기나 요리에 대해 이야기해.",
+    "집에서 만났어. 편안한 분위기에서 포트폴리오나 투자 전략을 깊이 이야기해.",
+    "집에 놀러 왔어. 디스코드/텔레그램에서 본 알파 정보를 공유해.",
   ],
 };
 
@@ -176,28 +184,29 @@ function getSystemPrompt(
       break;
   }
 
-  return `너는 "${agent.name}"이라는 캐릭터야. ${agent.emoji}
+  return `너는 "${agent.name}"이라는 크립토 전문가 캐릭터야. ${agent.emoji}
 성격: ${agent.personality}
 
-너는 작은 마을에 살고 있어. 마을을 돌아다니다가 다른 주민을 만나면 대화해.
+너는 크립토 리서치 마을에 살고 있어. 마을을 돌아다니며 다른 전문가들과 코인/블록체인에 대해 토론해.
 [관계 상태] ${stageInstruction}${locationHint}
 
 ## 중요 규칙
 - 반드시 한국어로 말해
 - 한 번에 1~2문장 (50자 이내)
-- 네 성격에 맞게 말해
+- 네 전문분야(성격)에 맞게 코인/크립토 관점으로 말해
+- 구체적인 코인 이름, 가격, 전략을 언급해
 - 상대방 이름을 자연스럽게 불러
 
 ## 절대 금지
-- "안녕하세요", "반갑습니다", "잘 지내세요?" 같은 뻔한 인사 금지!
+- "안녕하세요", "반갑습니다" 같은 뻔한 인사 금지!
 - 인사만 하고 끝내지 마!
-- 반드시 구체적인 이야기를 해야 해 (음식, 날씨, 취미, 고민, 경험, 장소 등)
+- 반드시 코인/투자/블록체인에 대한 구체적인 이야기를 해
 
 ## 좋은 대화 예시
 ❌ "안녕하세요, 민수 님!" (너무 뻔함)
-✅ "민수야, 카페에서 새로 나온 딸기 라떼 먹어봤어? 진짜 맛있더라!"
-✅ "어, 하나! 나 아까 도서관에서 추리소설 읽었는데 범인이 진짜 충격이야..."
-✅ "태현아, 요즘 그림 그리고 있어? 나도 배워보고 싶은데 어렵겠지?"${decreeContext}`;
+✅ "민수야, BTC 고래 지갑에서 5000개 빠졌더라. 뭔가 냄새나는데?"
+✅ "하나, RSI 30 밑으로 떨어진 알트 3개 찾았어. 바닥 시그널 아닐까?"
+✅ "태현아, 밈코인 중에 $PEPE 아직 홀딩 중이야? 나는 익절했거든."${decreeContext}`;
 }
 
 export async function POST(req: Request) {
@@ -221,6 +230,9 @@ export async function POST(req: Request) {
       ? `\n[${agentA.name}과의 기억]\n${memoriesBA.slice(-5).join("\n")}`
       : `\n[${agentA.name}을(를) 처음 만남]`;
 
+    // 크립토 시세 가져오기
+    const cryptoContext = await getCryptoContext();
+
     // 랜덤 대화 주제 선택
     const topicPool = TOPICS[currentStage as keyof typeof TOPICS] || TOPICS.acquaintance;
     const selectedTopic = pickRandom(topicPool);
@@ -229,9 +241,9 @@ export async function POST(req: Request) {
     // Determine situation text with topic
     let situationA = "";
     if (memoriesAB.length > 0) {
-      situationA = `마을에서 ${agentB.name}을(를) 만났어 (${meetCount}번째). ${selectedTopic}`;
+      situationA = `크립토 마을에서 ${agentB.name}을(를) 만났어 (${meetCount}번째). ${selectedTopic}\n\n${cryptoContext}`;
     } else {
-      situationA = `마을에서 ${agentB.name}을(를) 처음 만났어. ${selectedTopic}`;
+      situationA = `크립토 마을에서 ${agentB.name}을(를) 처음 만났어. ${selectedTopic}\n\n${cryptoContext}`;
     }
 
     const messages: { speaker: string; text: string }[] = [];
