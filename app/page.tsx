@@ -1457,16 +1457,42 @@ export default function VillagePage() {
     bubbles.forEach((bubble) => {
       const agent = agents.find((a) => a.id === bubble.agentId);
       if (!agent) return;
-      const bx = agent.x, by = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 20;
-      ctx.font = "12px sans-serif";
-      const tw = Math.min(ctx.measureText(bubble.text).width + 16, 180);
+      ctx.font = "11px sans-serif";
+
+      // 줄바꿈 처리 (최대 너비 160px)
+      const maxLineW = 160;
+      const words = bubble.text.split("");
+      const lines: string[] = [];
+      let currentLine = "";
+      for (const char of words) {
+        const testLine = currentLine + char;
+        if (ctx.measureText(testLine).width > maxLineW && currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = char;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].slice(0, -1) + "…"; }
+
+      const lineHeight = 15;
+      const bubbleW = Math.min(Math.max(...lines.map(l => ctx.measureText(l).width)) + 16, 180);
+      const bubbleH = lines.length * lineHeight + 10;
+      const bx = agent.x;
+      const by = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - bubbleH - 5;
+
       const opacity = Math.min(1, (bubble.duration - (Date.now() - bubble.timestamp)) / 1000);
       ctx.globalAlpha = opacity;
-      ctx.fillStyle = "rgba(0,0,0,0.8)";
-      ctx.beginPath(); ctx.roundRect(bx - tw / 2, by - 12, tw, 24, 8); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(bx - 5, by + 12); ctx.lineTo(bx, by + 18); ctx.lineTo(bx + 5, by + 12); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.85)";
+      ctx.beginPath(); ctx.roundRect(bx - bubbleW / 2, by, bubbleW, bubbleH, 8); ctx.fill();
+      // 말풍선 꼬리
+      ctx.beginPath(); ctx.moveTo(bx - 4, by + bubbleH); ctx.lineTo(bx, by + bubbleH + 6); ctx.lineTo(bx + 4, by + bubbleH); ctx.fill();
+      // 텍스트
       ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(bubble.text, bx, by, 164);
+      lines.forEach((line, i) => {
+        ctx.fillText(line, bx, by + 8 + i * lineHeight);
+      });
       ctx.globalAlpha = 1;
     });
 
