@@ -1257,19 +1257,58 @@ export default function VillagePage() {
         agentsRef.current = agentsRef.current.map(agent => {
           if (agent.isBaby || agent.state === "talking") return agent;
 
-          // 옷 구매 (무료 배급법 시 무료!)
+          // 옷 구매 → 인벤토리 + 착용 (무료 배급법 시 무료!)
           const freeOutfit = getLawEffect(villageLawsRef.current, "free_outfit") as boolean;
-          if (Math.random() < 0.2 && (freeOutfit || agent.coins > 0.01)) {
-            const affordableOutfits = freeOutfit ? OUTFITS : OUTFITS.filter(o => o.price <= agent.coins * 0.3);
+          if (Math.random() < 0.2 && (freeOutfit || agent.coins > 0.005)) {
+            const inv = agent.inventory || [];
+            const ownedNames = new Set(inv.map(i => i.name));
+            const affordableOutfits = (freeOutfit ? OUTFITS : OUTFITS.filter(o => o.price <= agent.coins * 0.4))
+              .filter(o => !ownedNames.has(o.name)); // 이미 가진 건 안 삼
             if (affordableOutfits.length > 0) {
               const chosen = affordableOutfits[Math.floor(Math.random() * affordableOutfits.length)];
-              if (agent.outfit?.name !== chosen.name) {
-                const cost = freeOutfit ? 0 : chosen.price;
-                const costMsg = freeOutfit ? "(무료 배급!)" : `(-${formatCoins(cost)})`;
-                setConversationLog(prev => [`👔 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name}을(를) 구매! ${costMsg}`, ...prev].slice(0, 50));
-                bubblesRef.current = [...bubblesRef.current, { id: `shop-${now}-${agent.id}`, agentId: agent.id, text: `${chosen.emoji} 새 옷!`, timestamp: now, duration: 4000 }];
-                return { ...agent, coins: agent.coins - cost, outfit: { name: chosen.name, emoji: chosen.emoji, shirtColor: chosen.shirtColor, pantsColor: chosen.pantsColor, hairColor: chosen.hairColor, accessory: chosen.accessory } };
-              }
+              const cost = freeOutfit ? 0 : chosen.price;
+              const costMsg = freeOutfit ? "(무료 배급!)" : `(-${formatCoins(cost)})`;
+              const newItem: AgentOutfit = { name: chosen.name, emoji: chosen.emoji, category: chosen.category, shirtColor: chosen.shirtColor, pantsColor: chosen.pantsColor, hairColor: chosen.hairColor, accessory: chosen.accessory };
+              const newInv = [...inv, newItem];
+              // 즉시 착용
+              const eq = { ...(agent.equipped || {}) };
+              const cat = (chosen.category || "top") as keyof typeof eq;
+              eq[cat] = newItem;
+              // 착용 아이템 기반으로 outfit 업데이트
+              const topItem = eq.top || eq.cape;
+              const botItem = eq.bottom;
+              const merged: AgentOutfit = {
+                name: chosen.name, emoji: chosen.emoji,
+                shirtColor: topItem?.shirtColor || agent.outfit?.shirtColor || agent.color,
+                pantsColor: botItem?.pantsColor || topItem?.pantsColor || agent.outfit?.pantsColor,
+                accessory: eq.hat?.accessory || eq.accessory?.accessory || topItem?.accessory,
+              };
+              setConversationLog(prev => [`👔 ${agent.emoji} ${agent.name}이(가) ${chosen.emoji} ${chosen.name} 구매+착용! ${costMsg}`, ...prev].slice(0, 50));
+              bubblesRef.current = [...bubblesRef.current, { id: `shop-${now}-${agent.id}`, agentId: agent.id, text: `${chosen.emoji} 새 ${chosen.category || "옷"}!`, timestamp: now, duration: 4000 }];
+              return { ...agent, coins: agent.coins - cost, inventory: newInv, equipped: eq, outfit: merged };
+            }
+          }
+
+          // 🔄 갈아입기 (20% 확률, 인벤토리에 2개 이상)
+          if (Math.random() < 0.05 && (agent.inventory || []).length >= 2) {
+            const inv = agent.inventory!;
+            const randomItem = inv[Math.floor(Math.random() * inv.length)];
+            const cat = (randomItem.category || "top") as "hat" | "cape" | "top" | "bottom" | "accessory" | "shoes";
+            const eq = { ...(agent.equipped || {}) };
+            const currentInSlot = eq[cat];
+            if (currentInSlot?.name !== randomItem.name) {
+              eq[cat] = randomItem;
+              const topItem = eq.top || eq.cape;
+              const botItem = eq.bottom;
+              const merged: AgentOutfit = {
+                name: randomItem.name, emoji: randomItem.emoji,
+                shirtColor: topItem?.shirtColor || agent.outfit?.shirtColor || agent.color,
+                pantsColor: botItem?.pantsColor || topItem?.pantsColor || agent.outfit?.pantsColor,
+                accessory: eq.hat?.accessory || eq.accessory?.accessory || topItem?.accessory,
+              };
+              bubblesRef.current = [...bubblesRef.current, { id: `change-${now}-${agent.id}`, agentId: agent.id, text: `${randomItem.emoji} 갈아입기~`, timestamp: now, duration: 3000 }];
+              setBubbles([...bubblesRef.current]);
+              return { ...agent, equipped: eq, outfit: merged };
             }
           }
 
@@ -1502,34 +1541,87 @@ export default function VillagePage() {
 
       drawSprite(ctx, frame, palette, agent.x, agent.y, PIXEL_SIZE, flip);
 
-      // 액세서리 렌더링
-      if (agent.outfit?.accessory) {
-        const headX = agent.x;
-        const headY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2;
-        ctx.textAlign = "center";
-        switch (agent.outfit.accessory) {
-          case "crown":
-            ctx.font = "10px sans-serif";
-            ctx.fillText("👑", headX, headY - 2);
+      // 👗 착용 아이템 렌더링
+      const headX = agent.x;
+      const headY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2;
+      const feetY = agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2;
+      ctx.textAlign = "center";
+      const eq = agent.equipped || {};
+
+      // 🧢 모자
+      if (eq.hat?.accessory) {
+        switch (eq.hat.accessory) {
+          case "crown": ctx.font = "10px sans-serif"; ctx.fillText("👑", headX, headY - 2); break;
+          case "hat": ctx.font = "9px sans-serif"; ctx.fillText("🎩", headX, headY - 1); break;
+          case "beanie":
+            ctx.fillStyle = eq.hat.shirtColor || "#3a6";
+            ctx.fillRect(headX - 5, headY - 3, 10, 5);
+            ctx.fillRect(headX - 4, headY - 5, 8, 3);
             break;
-          case "hat":
-            ctx.font = "9px sans-serif";
-            ctx.fillText("🎩", headX, headY - 1);
+          case "cap":
+            ctx.fillStyle = eq.hat.shirtColor || "#36a";
+            ctx.fillRect(headX - 6, headY, 12, 3);
+            ctx.fillRect(headX - 4, headY - 3, 8, 4);
             break;
-          case "chef_hat":
-            ctx.font = "9px sans-serif";
-            ctx.fillText("👨‍🍳", headX, headY - 1);
+          case "chef_hat": ctx.font = "9px sans-serif"; ctx.fillText("👨‍🍳", headX, headY - 1); break;
+        }
+      } else if (agent.outfit?.accessory === "crown") {
+        ctx.font = "10px sans-serif"; ctx.fillText("👑", headX, headY - 2);
+      } else if (agent.outfit?.accessory === "hat") {
+        ctx.font = "9px sans-serif"; ctx.fillText("🎩", headX, headY - 1);
+      } else if (agent.outfit?.accessory === "chef_hat") {
+        ctx.font = "9px sans-serif"; ctx.fillText("👨‍🍳", headX, headY - 1);
+      }
+
+      // 🦸 망토
+      if (eq.cape?.accessory) {
+        const capeColor = eq.cape.accessory === "cape_red" ? "#cc2222" : eq.cape.accessory === "cape_purple" ? "#6a0dad" : "#1a1a1a";
+        ctx.fillStyle = capeColor;
+        ctx.globalAlpha = 0.7;
+        const cx = flip ? headX + 4 : headX - 4;
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, headY + 6);
+        ctx.lineTo(cx - 6, feetY - 2);
+        ctx.lineTo(cx + 2, feetY - 2);
+        ctx.lineTo(cx + 1, headY + 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // 💍 악세서리
+      if (eq.accessory?.accessory) {
+        switch (eq.accessory.accessory) {
+          case "glasses": ctx.font = "7px sans-serif"; ctx.fillText("🤓", headX, headY + 8); break;
+          case "necklace":
+            ctx.fillStyle = "#f1c40f";
+            ctx.beginPath(); ctx.arc(headX, agent.y - 2, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillRect(headX - 1, agent.y - 5, 2, 3);
             break;
-          case "glasses":
-            ctx.font = "7px sans-serif";
-            ctx.fillText("🤓", headX, headY + 8);
+          case "earring":
+            ctx.fillStyle = "#e8d44d";
+            ctx.beginPath(); ctx.arc(headX + 5, headY + 8, 1.5, 0, Math.PI * 2); ctx.fill();
             break;
-          case "tie":
-            ctx.fillStyle = "#c0392b";
-            ctx.fillRect(headX - 1, agent.y, 2, 8);
-            ctx.fillRect(headX - 2, agent.y, 4, 2);
+          case "bracelet":
+            ctx.strokeStyle = "#c0a030";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(headX + 7, agent.y + 4, 2.5, 0, Math.PI * 2); ctx.stroke();
             break;
         }
+      } else if (agent.outfit?.accessory === "glasses") {
+        ctx.font = "7px sans-serif"; ctx.fillText("🤓", headX, headY + 8);
+      } else if (agent.outfit?.accessory === "tie") {
+        ctx.fillStyle = "#c0392b";
+        ctx.fillRect(headX - 1, agent.y, 2, 8);
+        ctx.fillRect(headX - 2, agent.y, 4, 2);
+      }
+
+      // 👟 신발
+      if (eq.shoes?.accessory) {
+        const shoeColor = eq.shoes.accessory === "dress_shoes" ? "#2a1a0a" : eq.shoes.accessory === "boots" ? "#5c4033" : "#ffffff";
+        ctx.fillStyle = shoeColor;
+        ctx.fillRect(headX - 5, feetY - 2, 4, 3);
+        ctx.fillRect(headX + 1, feetY - 2, 4, 3);
       }
 
       if (agent.state === "talking") {

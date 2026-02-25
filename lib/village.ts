@@ -24,6 +24,17 @@ export interface Agent {
   product?: AgentProduct | null;
   // 👔 옷/외형
   outfit?: AgentOutfit | null;
+  // 🎒 인벤토리 (보유 아이템)
+  inventory?: AgentOutfit[];
+  // 👗 착용 슬롯
+  equipped?: {
+    hat?: AgentOutfit | null;
+    cape?: AgentOutfit | null;
+    top?: AgentOutfit | null;
+    bottom?: AgentOutfit | null;
+    accessory?: AgentOutfit | null;
+    shoes?: AgentOutfit | null;
+  };
   // 🏠 집 레벨
   homeLevel?: number; // 0=기본, 1=중형, 2=대형, 3=맨션
   // ⭐ 평판 시스템
