@@ -1118,9 +1118,9 @@ export default function VillagePage() {
           }
         }
 
-        // 💀 죽은 에이전트 60초 후 제거
+        // 💀 죽은 에이전트 3초 후 제거
         agentsRef.current = agentsRef.current.filter(a =>
-          !a.isDead || (Date.now() - (a.deathTime || 0)) < 60_000
+          !a.isDead || (Date.now() - (a.deathTime || 0)) < 3_000
         );
         setAgents([...agentsRef.current]);
       }
