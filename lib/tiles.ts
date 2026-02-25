@@ -1012,6 +1012,12 @@ function drawRoom(
 }
 
 export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
+  // ⛏️ 동굴 특수 렌더링
+  if (b.id === "mine") {
+    drawCaveExterior(ctx, b, isDark);
+    return;
+  }
+
   const wall = isDark ? "#2a2040" : b.wallColor;
   const floor = isDark ? "#1a1530" : b.floorColor;
   const wallDark = shadeColor(wall, -30);
@@ -1087,4 +1093,105 @@ export function drawBuildingInterior(ctx: Ctx, b: Building, isDark: boolean) {
   ctx.shadowBlur = 5;
   ctx.fillText(b.name, b.x + b.width / 2, backY - 5);
   ctx.shadowBlur = 0;
+}
+
+// ⛏️ 산속 동굴 렌더링
+function drawCaveExterior(ctx: Ctx, b: Building, isDark: boolean) {
+  const cx = b.x + b.width / 2;
+  const baseY = b.y + b.height;
+
+  // 산 (큰 삼각형)
+  const mountainW = b.width + 120;
+  const mountainH = b.height + 80;
+  const mountainTop = b.y - 60;
+
+  // 산 그림자
+  ctx.fillStyle = isDark ? "#1a1a10" : "#3d5a2a";
+  ctx.beginPath();
+  ctx.moveTo(cx, mountainTop);
+  ctx.lineTo(cx - mountainW / 2, baseY + 10);
+  ctx.lineTo(cx + mountainW / 2, baseY + 10);
+  ctx.closePath();
+  ctx.fill();
+
+  // 산 밝은면
+  ctx.fillStyle = isDark ? "#252518" : "#4a7a32";
+  ctx.beginPath();
+  ctx.moveTo(cx, mountainTop);
+  ctx.lineTo(cx + 10, mountainTop + 5);
+  ctx.lineTo(cx + mountainW / 2 - 10, baseY + 5);
+  ctx.lineTo(cx - mountainW / 2 + 30, baseY + 5);
+  ctx.closePath();
+  ctx.fill();
+
+  // 산꼭대기 눈/바위
+  ctx.fillStyle = isDark ? "#444" : "#8a8a7a";
+  ctx.beginPath();
+  ctx.moveTo(cx, mountainTop);
+  ctx.lineTo(cx - 20, mountainTop + 25);
+  ctx.lineTo(cx + 25, mountainTop + 20);
+  ctx.closePath();
+  ctx.fill();
+
+  // 나무들 (산 위)
+  for (let i = 0; i < 5; i++) {
+    const tx = cx - 50 + i * 25 + (Math.sin(i * 7) * 10);
+    const ty = mountainTop + 30 + i * 12 + (Math.cos(i * 5) * 8);
+    ctx.fillStyle = isDark ? "#1a2a10" : "#2d5016";
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - 12);
+    ctx.lineTo(tx - 8, ty + 4);
+    ctx.lineTo(tx + 8, ty + 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = isDark ? "#2a1a10" : "#5a3a1a";
+    ctx.fillRect(tx - 1.5, ty + 4, 3, 5);
+  }
+
+  // 동굴 입구 (어두운 반원)
+  const caveW = 70;
+  const caveH = 55;
+  const caveX = cx - 5;
+  const caveY = baseY - 15;
+
+  // 입구 주변 바위
+  ctx.fillStyle = isDark ? "#2a2a20" : "#6b6050";
+  ctx.beginPath();
+  ctx.ellipse(caveX, caveY, caveW / 2 + 12, caveH + 5, 0, Math.PI, 0);
+  ctx.fill();
+
+  // 동굴 어둠
+  const caveGrad = ctx.createRadialGradient(caveX, caveY, 0, caveX, caveY, caveH);
+  caveGrad.addColorStop(0, "#0a0808");
+  caveGrad.addColorStop(0.7, "#1a1510");
+  caveGrad.addColorStop(1, "#2a2218");
+  ctx.fillStyle = caveGrad;
+  ctx.beginPath();
+  ctx.ellipse(caveX, caveY, caveW / 2, caveH, 0, Math.PI, 0);
+  ctx.fill();
+
+  // 동굴 내부 빛 (채굴 장비 불빛)
+  ctx.fillStyle = "rgba(255, 180, 50, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(caveX, caveY - 10, 20, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ⛏️ 표시
+  ctx.font = "16px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("⛏️", caveX, caveY - caveH + 10);
+
+  // 이름
+  ctx.font = "bold 11px sans-serif";
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "rgba(0,0,0,0.9)";
+  ctx.shadowBlur = 4;
+  ctx.fillText(b.name, cx, mountainTop - 8);
+  ctx.shadowBlur = 0;
+
+  // 바위 디테일
+  ctx.fillStyle = isDark ? "#333328" : "#7a7060";
+  ctx.fillRect(caveX - caveW/2 - 8, caveY - 5, 12, 8);
+  ctx.fillRect(caveX + caveW/2 - 2, caveY - 10, 10, 12);
+  ctx.fillRect(caveX - 15, caveY - 3, 8, 6);
 }

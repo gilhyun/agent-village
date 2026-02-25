@@ -307,7 +307,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-minsu",
-    coins: 0.1, reputation: 50,
+    coins: 0, reputation: 50,
     product: { name: "온체인 리포트", emoji: "📊", price: 0.005, description: "고래 지갑 추적 + DEX 분석 리포트" },
   },
   {
@@ -320,7 +320,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-jieun",
-    coins: 0.1, reputation: 50,
+    coins: 0, reputation: 50,
     product: { name: "밈코인 알파", emoji: "🎯", price: 0.008, description: "초기 밈코인 발굴 정보" },
   },
   {
@@ -333,7 +333,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-junho",
-    coins: 0.1, reputation: 50,
+    coins: 0, reputation: 50,
     product: { name: "DeFi 전략서", emoji: "🐋", price: 0.003, description: "수익률 최적화 DeFi 전략" },
   },
   {
@@ -346,7 +346,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-hana",
-    coins: 0.1, reputation: 50,
+    coins: 0, reputation: 50,
     product: { name: "차트 분석", emoji: "📈", price: 0.006, description: "기술적 분석 기반 매매 시그널" },
   },
   {
@@ -359,7 +359,7 @@ export const DEFAULT_AGENTS: Omit<Agent, "x" | "y" | "targetX" | "targetY" | "de
     state: "walking",
     talkingTo: null,
     homeId: "house-taehyun",
-    coins: 0.1, reputation: 50,
+    coins: 0, reputation: 50,
     product: { name: "매크로 분석", emoji: "💎", price: 0.004, description: "거시경제 × 비트코인 상관관계 분석" },
   },
 ];
@@ -620,26 +620,19 @@ export const VILLAGE_BUILDINGS: Building[] = [
       { type: "bookshelf", x: 225, y: 90, w: 45, h: 20 },
     ],
   },
-  // ⛏️ 크립토 광산
+  // ⛏️ 크립토 광산 (산속 동굴)
   {
-    id: "mine", name: "크립토 광산", emoji: "⛏️", x: 100, y: 1050, width: 200, height: 160, roofColor: "#4a3728", wallColor: "#6b5340", floorColor: "#3d3228",
+    id: "mine", name: "크립토 동굴", emoji: "⛏️", x: 50, y: 1050, width: 180, height: 130, roofColor: "#3d3228", wallColor: "#5a4a3a", floorColor: "#2a2218",
     wings: [
-      { dx: -70, dy: 40, w: 80, h: 80 },  // 왼쪽 갱도 입구
+      { dx: 170, dy: 20, w: 60, h: 90 },  // 갱도 통로
     ],
     furniture: [
       // 채굴 장비
-      { type: "desk", x: 20, y: 20, w: 60, h: 30 },   // 서버 랙 1
-      { type: "desk", x: 100, y: 20, w: 60, h: 30 },  // 서버 랙 2
-      { type: "desk", x: 20, y: 70, w: 60, h: 30 },   // 서버 랙 3
-      { type: "desk", x: 100, y: 70, w: 60, h: 30 },  // 서버 랙 4
-      // 의자
-      { type: "chair", x: 40, y: 55, w: 15, h: 15 },
-      { type: "chair", x: 120, y: 55, w: 15, h: 15 },
-      // 벤치
-      { type: "bench", x: 50, y: 120, w: 80, h: 15 },
-      // 갱도 선반
-      { type: "bookshelf", x: -55, y: 50, w: 45, h: 20 },
-      { type: "bookshelf", x: -55, y: 75, w: 45, h: 20 },
+      { type: "desk", x: 15, y: 15, w: 50, h: 25 },
+      { type: "desk", x: 80, y: 15, w: 50, h: 25 },
+      { type: "desk", x: 15, y: 55, w: 50, h: 25 },
+      { type: "desk", x: 80, y: 55, w: 50, h: 25 },
+      { type: "bench", x: 40, y: 95, w: 80, h: 15 },
     ],
   },
 ];

@@ -276,7 +276,7 @@ export default function VillagePage() {
         { name: "약초", emoji: "🌿", price: 0.0035, description: "효능 좋은 약초 세트" },
       ],
       colors: ["#6366f1", "#ec4899", "#14b8a6", "#f59e0b", "#a78bfa"],
-      speedRange: [1.6, 2.4], coinsRange: [0.05, 0.15], repRange: [40, 60],
+      speedRange: [1.6, 2.4], coinsRange: [0, 0], repRange: [40, 60],
       arrivalMsg: "마을에 도착했습니다!", bubbleMsg: "🌍 안녕하세요!",
       stealChanceMult: 1,
     },
@@ -294,7 +294,7 @@ export default function VillagePage() {
         { name: "호신용품", emoji: "🛡️", price: 0.005, description: "경찰 특수 호신용품" },
       ],
       colors: ["#0ea5e9", "#0284c7", "#0369a1", "#38bdf8"],
-      speedRange: [2.4, 3.2], coinsRange: [0.08, 0.2], repRange: [60, 80],
+      speedRange: [2.4, 3.2], coinsRange: [0, 0], repRange: [60, 80],
       arrivalMsg: "치안 유지를 위해 부임했습니다!", bubbleMsg: "👮 질서를 지키겠습니다!",
       stealChanceMult: 0, // 경찰은 도둑질 안 함
     },
@@ -312,7 +312,7 @@ export default function VillagePage() {
         { name: "훈련 교본", emoji: "📗", price: 0.003, description: "군사 훈련 교본" },
       ],
       colors: ["#059669", "#047857", "#065f46", "#34d399"],
-      speedRange: [2.8, 3.6], coinsRange: [0.06, 0.15], repRange: [55, 75],
+      speedRange: [2.8, 3.6], coinsRange: [0, 0], repRange: [55, 75],
       arrivalMsg: "마을 방어를 위해 배치되었습니다!", bubbleMsg: "🫡 충성!",
       stealChanceMult: 0, // 군인도 도둑질 안 함
     },
@@ -332,7 +332,7 @@ export default function VillagePage() {
         { name: "도박 칩", emoji: "🎰", price: 0.005, description: "지하 도박장 칩" },
       ],
       colors: ["#ef4444", "#dc2626", "#b91c1c", "#f87171", "#991b1b"],
-      speedRange: [2.0, 3.0], coinsRange: [0.02, 0.1], repRange: [10, 30],
+      speedRange: [2.0, 3.0], coinsRange: [0, 0], repRange: [10, 30],
       arrivalMsg: "마을에 나타났다... 조심해!", bubbleMsg: "😎 여기가 내 구역이야",
       stealChanceMult: 3, // 도둑질 확률 3배!
     },
@@ -943,20 +943,16 @@ export default function VillagePage() {
           const currentTime = getTimeOfDay(virtualElapsedRef.current);
           let next;
           if (currentTime.phase === "night" && agent.homeId) {
-            // 밤에는 80% 확률로 집에 감 (20%는 밤새는 놈 ㅋ)
+            // 밤에는 무조건 집에 가서 잠
             if (agent.destination === agent.homeId) {
               // 이미 집에 도착 → idle (잠자기)
               return { ...agent, state: "idle" as const, destination: agent.homeId };
             }
-            if (Math.random() < 0.8) {
-              const home = VILLAGE_BUILDINGS.find(b => b.id === agent.homeId);
-              if (home) {
-                const hx = home.x + home.width / 2 + (Math.random() - 0.5) * 20;
-                const hy = home.y + home.height / 2 + (Math.random() - 0.5) * 20;
-                next = { targetX: hx, targetY: hy, destination: agent.homeId };
-              } else {
-                next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
-              }
+            const home = VILLAGE_BUILDINGS.find(b => b.id === agent.homeId);
+            if (home) {
+              const hx = home.x + home.width / 2 + (Math.random() - 0.5) * 20;
+              const hy = home.y + home.height / 2 + (Math.random() - 0.5) * 20;
+              next = { targetX: hx, targetY: hy, destination: agent.homeId };
             } else {
               next = pickDestination(agent.id, agent.homeId, agent.destination, getPartnerHomeId(agent.id));
             }
