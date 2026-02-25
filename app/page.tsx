@@ -80,14 +80,7 @@ function getTimeOfDay(virtualElapsed: number): { phase: TimeOfDay; progress: num
   return { phase: "night", progress, hourLabel };
 }
 
-function getOverlayColor(phase: TimeOfDay, progress: number): string {
-  switch (phase) {
-    case "dawn": return `rgba(255, 180, 100, ${0.15 * (1 - progress / 0.08)})`;
-    case "day": return "rgba(0,0,0,0)";
-    case "dusk": return `rgba(255, 100, 50, ${0.2 * ((progress - DUSK_START) / (NIGHT_START - DUSK_START))})`;
-    case "night": return `rgba(10, 10, 40, ${0.4 + 0.15 * Math.min(1, (progress - NIGHT_START) / 0.15)})`;
-  }
-}
+// (getOverlayColor 제거 — 상단 그라데이션으로 대체)
 
 function formatCoins(coins: number): string {
   if (coins >= 100_000_000) return `${(coins / 100_000_000).toFixed(1)}억`;
@@ -1646,12 +1639,22 @@ export default function VillagePage() {
       }
     }
 
-    // 🌙 낮/밤 오버레이
+    // 🌙 낮/밤 — 상단 그라데이션만
     const timeInfo = getTimeOfDay(virtualElapsedRef.current);
-    const overlayColor = getOverlayColor(timeInfo.phase, timeInfo.progress);
-    if (overlayColor !== "rgba(0,0,0,0)") {
-      ctx.fillStyle = overlayColor;
-      ctx.fillRect(0, 0, VW, VH);
+    if (timeInfo.phase === "night" || timeInfo.phase === "dusk") {
+      const gradH = timeInfo.phase === "night" ? VH * 0.4 : VH * 0.25;
+      const alpha = timeInfo.phase === "night" ? 0.6 : 0.3;
+      const grad = ctx.createLinearGradient(0, 0, 0, gradH);
+      grad.addColorStop(0, `rgba(10, 10, 40, ${alpha})`);
+      grad.addColorStop(1, "rgba(10, 10, 40, 0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, VW, gradH);
+    } else if (timeInfo.phase === "dawn") {
+      const grad = ctx.createLinearGradient(0, 0, 0, VH * 0.2);
+      grad.addColorStop(0, "rgba(255, 180, 100, 0.15)");
+      grad.addColorStop(1, "rgba(255, 180, 100, 0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, VW, VH * 0.2);
     }
 
     // 밤에 별 반짝이
