@@ -361,6 +361,14 @@ export default function VillagePage() {
     const [coinMin, coinMax] = config.coinsRange;
     const [repMin, repMax] = config.repRange;
 
+    // 직업별 기본 복장
+    const classOutfits: Record<string, AgentOutfit> = {
+      police: { name: "경찰복", emoji: "👮", shirtColor: "#1a3a5c", pantsColor: "#0f2440", accessory: "hat" },
+      soldier: { name: "군복", emoji: "🎖️", shirtColor: "#2d4a1e", pantsColor: "#1a3010", accessory: "hat" },
+      thug: { name: "건달룩", emoji: "😎", shirtColor: "#1a1a1a", pantsColor: "#0d0d0d", accessory: "glasses" },
+    };
+    const classHp: Record<string, number> = { civilian: 80, police: 120, soldier: 150, thug: 100 };
+
     const newAgent: Agent = {
       id, name, emoji, color, personality,
       x, y,
@@ -373,6 +381,10 @@ export default function VillagePage() {
       coins: coinMin + Math.floor(Math.random() * (coinMax - coinMin)),
       product,
       reputation: repMin + Math.floor(Math.random() * (repMax - repMin)),
+      agentClass: agentClass,
+      hp: classHp[agentClass] || 100,
+      maxHp: classHp[agentClass] || 100,
+      outfit: classOutfits[agentClass] || undefined,
     };
 
     agentsRef.current = [...agentsRef.current, newAgent];
@@ -842,6 +854,7 @@ export default function VillagePage() {
 
       agentsRef.current = agentsRef.current.map((agent) => {
         if (agent.state === "talking") return agent;
+        if (agent.isDead) return agent; // 죽은 에이전트 이동 안 함
         // 자고 있는 에이전트 아침에 깨우기
         if (agent.state === "idle") {
           const timeNow = getTimeOfDay(villageStartTime);
@@ -988,6 +1001,7 @@ export default function VillagePage() {
           const a = agentsRef.current[i];
           const b = agentsRef.current[j];
           if (a.state === "talking" || b.state === "talking") continue;
+          if (a.isDead || b.isDead) continue; // 죽은 에이전트 대화 불가
           const dist = distance(a, b);
           if (dist < INTERACTION_DISTANCE) {
             const key = relationshipKey(a.id, b.id);
@@ -1042,6 +1056,71 @@ export default function VillagePage() {
         }
         return agent;
       });
+
+      // ⚔️ 전투 시스템 (매 120틱 = ~2초)
+      if (tickRef.current % 120 === 0) {
+        const aliveAgents = agentsRef.current.filter(a => !a.isDead && !a.isBaby);
+        for (const attacker of aliveAgents) {
+          if (!attacker.agentClass) continue;
+          // 군인/경찰 → 건달 공격 / 건달 → 군인/경찰/시민 공격
+          const isLaw = attacker.agentClass === "police" || attacker.agentClass === "soldier";
+          const isThug = attacker.agentClass === "thug";
+          if (!isLaw && !isThug) continue;
+
+          const ATTACK_RANGE = 60;
+          for (const target of aliveAgents) {
+            if (target.id === attacker.id || target.isDead) continue;
+            const dx = attacker.x - target.x;
+            const dy = attacker.y - target.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > ATTACK_RANGE) continue;
+
+            // 군인/경찰은 건달만 공격 / 건달은 아무나 공격 (20% 확률)
+            const shouldAttack = isLaw
+              ? target.agentClass === "thug"
+              : Math.random() < 0.2;
+            if (!shouldAttack) continue;
+
+            // 데미지 계산
+            const baseDmg = attacker.agentClass === "soldier" ? 40 : attacker.agentClass === "police" ? 25 : 15;
+            const damage = baseDmg + Math.floor(Math.random() * 10);
+            const newHp = Math.max(0, (target.hp || 100) - damage);
+
+            agentsRef.current = agentsRef.current.map(ag => {
+              if (ag.id === target.id) {
+                if (newHp <= 0) {
+                  return { ...ag, hp: 0, isDead: true, deathTime: Date.now(), state: "idle" as const };
+                }
+                return { ...ag, hp: newHp };
+              }
+              return ag;
+            });
+
+            const weapon = attacker.agentClass === "soldier" ? "🔫" : attacker.agentClass === "police" ? "🔫" : "🔪";
+            if (newHp <= 0) {
+              setConversationLog(prev => [`💀 ${attacker.emoji} ${attacker.name}이(가) ${weapon} ${target.emoji} ${target.name}을(를) 처치했다!`, ...prev].slice(0, 50));
+              bubblesRef.current = [
+                ...bubblesRef.current,
+                { id: `kill-${Date.now()}-a`, agentId: attacker.id, text: `${weapon} 처치!`, timestamp: Date.now(), duration: 4000 },
+                { id: `kill-${Date.now()}-t`, agentId: target.id, text: "💀", timestamp: Date.now(), duration: 5000 },
+              ];
+            } else {
+              bubblesRef.current = [
+                ...bubblesRef.current,
+                { id: `atk-${Date.now()}-${Math.random()}`, agentId: attacker.id, text: `${weapon} -${damage}`, timestamp: Date.now(), duration: 2000 },
+              ];
+            }
+            setBubbles([...bubblesRef.current]);
+            break; // 한 턴에 한 명만 공격
+          }
+        }
+
+        // 💀 죽은 에이전트 60초 후 제거
+        agentsRef.current = agentsRef.current.filter(a =>
+          !a.isDead || (Date.now() - (a.deathTime || 0)) < 60_000
+        );
+        setAgents([...agentsRef.current]);
+      }
 
       // 🏛️ 이장 선출 + 월급 (매 600틱 = ~10초)
       if (tickRef.current % 600 === 0 && tickRef.current > 0) {
@@ -1393,9 +1472,42 @@ export default function VillagePage() {
       ctx.fillText(agent.name, agent.x, agent.y + SPRITE_HEIGHT * PIXEL_SIZE / 2 + 14);
 
       // 💤 잠자는 표시
-      if (agent.state === "idle") {
+      if (agent.state === "idle" && !agent.isDead) {
         ctx.font = `${10 + Math.sin(tick * 0.1) * 2}px sans-serif`;
         ctx.fillText("💤", agent.x + 10, agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 5 + Math.sin(tick * 0.08) * 3);
+      }
+
+      // 💀 죽은 에이전트
+      if (agent.isDead) {
+        ctx.globalAlpha = 0.5;
+        ctx.font = "16px sans-serif";
+        ctx.fillText("💀", agent.x, agent.y - 5);
+        ctx.globalAlpha = 1;
+      }
+
+      // ❤️ HP 바 (직업 있는 에이전트만)
+      if (agent.agentClass && !agent.isDead && agent.hp !== undefined && agent.maxHp) {
+        const barW = 24;
+        const barH = 3;
+        const barX = agent.x - barW / 2;
+        const barY = agent.y - SPRITE_HEIGHT * PIXEL_SIZE / 2 - 8;
+        const hpRatio = agent.hp / agent.maxHp;
+        // 배경
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(barX, barY, barW, barH);
+        // HP
+        ctx.fillStyle = hpRatio > 0.6 ? "#2ecc71" : hpRatio > 0.3 ? "#f1c40f" : "#e74c3c";
+        ctx.fillRect(barX, barY, barW * hpRatio, barH);
+      }
+
+      // 🔫🔪 무기 표시
+      if (agent.agentClass && !agent.isDead) {
+        const wx = agent.x + SPRITE_WIDTH * PIXEL_SIZE / 2 + 2;
+        const wy = agent.y;
+        ctx.font = "8px sans-serif";
+        if (agent.agentClass === "soldier") ctx.fillText("🔫", wx, wy);
+        else if (agent.agentClass === "police") ctx.fillText("🔫", wx, wy);
+        else if (agent.agentClass === "thug") ctx.fillText("🔪", wx, wy);
       }
 
       // 코인 + 평판 표시

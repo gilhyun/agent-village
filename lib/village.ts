@@ -32,6 +32,13 @@ export interface Agent {
   isMayor?: boolean;
   // 🧱 블록 시스템
   blocks?: { color: string; count: number }[]; // 보유 블록
+  // 🎖️ 직업 클래스
+  agentClass?: "civilian" | "police" | "soldier" | "thug";
+  // ❤️ 생명력
+  hp?: number; // 기본 100
+  maxHp?: number;
+  isDead?: boolean;
+  deathTime?: number;
 }
 
 // 🏛️ 마을 법률
